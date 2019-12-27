@@ -21,12 +21,9 @@ namespace StockSharp.Messages
 	using System.ComponentModel.DataAnnotations;
 	using System.Linq;
 
-	using Ecng.Collections;
 	using Ecng.Common;
 	using Ecng.Interop;
 	using Ecng.Serialization;
-
-	using MoreLinq;
 
 	using StockSharp.Logging;
 	using StockSharp.Localization;
@@ -36,87 +33,6 @@ namespace StockSharp.Messages
 	/// </summary>
 	public abstract class MessageAdapter : BaseLogReceiver, IMessageAdapter, INotifyPropertyChanged
 	{
-		private class CodeTimeOut
-			//where T : class
-		{
-			private readonly CachedSynchronizedDictionary<long, TimeSpan> _registeredIds = new CachedSynchronizedDictionary<long, TimeSpan>();
-
-			private TimeSpan _timeOut = TimeSpan.FromSeconds(10);
-
-			public TimeSpan TimeOut
-			{
-				get => _timeOut;
-				set
-				{
-					if (value <= TimeSpan.Zero)
-						throw new ArgumentOutOfRangeException(nameof(value), value, LocalizedStrings.IntervalMustBePositive);
-
-					_timeOut = value;
-				}
-			}
-
-			public void StartTimeOut(long transactionId)
-			{
-				if (transactionId == 0)
-				{
-					//throw new ArgumentNullException(nameof(transactionId));
-					return;
-				}
-
-				_registeredIds.SafeAdd(transactionId, s => TimeOut);
-			}
-
-			public void UpdateTimeOut(long transactionId)
-			{
-				if (transactionId == 0)
-					return;
-
-				_registeredIds[transactionId] = TimeOut;
-			}
-
-			public void RemoveTimeOut(long transactionId)
-			{
-				if (transactionId == 0)
-					return;
-
-				_registeredIds.Remove(transactionId);
-			}
-
-			public IEnumerable<long> ProcessTime(TimeSpan diff)
-			{
-				if (_registeredIds.Count == 0)
-					return Enumerable.Empty<long>();
-
-				return _registeredIds.SyncGet(d =>
-				{
-					var timeOutCodes = new List<long>();
-
-					foreach (var pair in d.CachedPairs)
-					{
-						d[pair.Key] -= diff;
-
-						if (d[pair.Key] > TimeSpan.Zero)
-							continue;
-
-						timeOutCodes.Add(pair.Key);
-						d.Remove(pair.Key);
-					}
-
-					return timeOutCodes;
-				});
-			}
-
-			public void Clear()
-			{
-				_registeredIds.Clear();
-			}
-		}
-
-		private DateTimeOffset _prevTime;
-
-		private readonly CodeTimeOut _secLookupTimeOut = new CodeTimeOut();
-		private readonly CodeTimeOut _pfLookupTimeOut = new CodeTimeOut();
-
 		/// <summary>
 		/// Initialize <see cref="MessageAdapter"/>.
 		/// </summary>
@@ -137,13 +53,13 @@ namespace StockSharp.Messages
 				Categories = attr.Categories;
 		}
 
-		private MessageTypes[] _supportedMessages = ArrayHelper.Empty<MessageTypes>();
+		private IEnumerable<MessageTypes> _supportedInMessages = Enumerable.Empty<MessageTypes>();
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual MessageTypes[] SupportedMessages
+		public virtual IEnumerable<MessageTypes> SupportedInMessages
 		{
-			get => _supportedMessages;
+			get => _supportedInMessages;
 			set
 			{
 				if (value == null)
@@ -153,15 +69,62 @@ namespace StockSharp.Messages
 				if (duplicate != null)
 					throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
 
-				_supportedMessages = value;
+				_supportedInMessages = value.ToArray();
+
+				OnPropertyChanged(nameof(SupportedInMessages));
 			}
 		}
 
-		private MarketDataTypes[] _supportedMarketDataTypes = ArrayHelper.Empty<MarketDataTypes>();
+		private IEnumerable<MessageTypes> _supportedOutMessages = Enumerable.Empty<MessageTypes>();
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual MarketDataTypes[] SupportedMarketDataTypes
+		public virtual IEnumerable<MessageTypes> SupportedOutMessages
+		{
+			get => _supportedOutMessages;
+			set
+			{
+				if (value == null)
+					throw new ArgumentNullException(nameof(value));
+
+				var duplicate = value.GroupBy(m => m).FirstOrDefault(g => g.Count() > 1);
+				if (duplicate != null)
+					throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
+
+				_supportedOutMessages = value.ToArray();
+
+				OnPropertyChanged(nameof(SupportedOutMessages));
+			}
+		}
+
+		private IEnumerable<MessageTypeInfo> _possibleSupportedMessages = Enumerable.Empty<MessageTypeInfo>();
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual IEnumerable<MessageTypeInfo> PossibleSupportedMessages
+		{
+			get => _possibleSupportedMessages;
+			set
+			{
+				if (value == null)
+					throw new ArgumentNullException(nameof(value));
+
+				var duplicate = value.GroupBy(m => m.Type).FirstOrDefault(g => g.Count() > 1);
+				if (duplicate != null)
+					throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
+
+				_possibleSupportedMessages = value;
+				OnPropertyChanged(nameof(PossibleSupportedMessages));
+
+				SupportedInMessages = value.Select(t => t.Type).ToArray();
+			}
+		}
+
+		private IEnumerable<MarketDataTypes> _supportedMarketDataTypes = Enumerable.Empty<MarketDataTypes>();
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual IEnumerable<MarketDataTypes> SupportedMarketDataTypes
 		{
 			get => _supportedMarketDataTypes;
 			set
@@ -173,7 +136,7 @@ namespace StockSharp.Messages
 				if (duplicate != null)
 					throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
 
-				_supportedMarketDataTypes = value;
+				_supportedMarketDataTypes = value.ToArray();
 			}
 		}
 
@@ -183,7 +146,7 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual IEnumerable<TimeSpan> TimeFrames => Enumerable.Empty<TimeSpan>();
+		public virtual IEnumerable<Level1Fields> CandlesBuildFrom => Enumerable.Empty<Level1Fields>();
 
 		/// <inheritdoc />
 		[Browsable(false)]
@@ -196,7 +159,8 @@ namespace StockSharp.Messages
 			ResourceType = typeof(LocalizedStrings),
 			Name = LocalizedStrings.Str192Key,
 			Description = LocalizedStrings.Str193Key,
-			GroupName = LocalizedStrings.Str186Key)]
+			GroupName = LocalizedStrings.Str186Key,
+			Order = 300)]
 		public TimeSpan HeartbeatInterval
 		{
 			get => _heartbeatInterval;
@@ -208,18 +172,6 @@ namespace StockSharp.Messages
 				_heartbeatInterval = value;
 			}
 		}
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool SecurityLookupRequired => this.IsMessageSupported(MessageTypes.SecurityLookup);
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool PortfolioLookupRequired => this.IsMessageSupported(MessageTypes.PortfolioLookup);
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool OrderStatusRequired => this.IsMessageSupported(MessageTypes.OrderStatus);
 
 		/// <inheritdoc />
 		[Browsable(false)]
@@ -239,14 +191,6 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual bool IsSupportSubscriptionBySecurity => true;
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool IsSupportSubscriptionByPortfolio => this.IsMessageSupported(MessageTypes.Portfolio);
-
-		/// <inheritdoc />
-		[Browsable(false)]
 		public virtual bool IsSupportCandlesUpdates => false;
 
 		/// <inheritdoc />
@@ -262,16 +206,6 @@ namespace StockSharp.Messages
 		public virtual OrderCancelVolumeRequireTypes? OrderCancelVolumeRequired { get; } = null;
 
 		/// <summary>
-		/// Gets a value indicating whether the connector supports security lookup.
-		/// </summary>
-		protected virtual bool IsSupportNativeSecurityLookup => false;
-
-		/// <summary>
-		/// Gets a value indicating whether the connector supports position lookup.
-		/// </summary>
-		protected virtual bool IsSupportNativePortfolioLookup => false;
-
-		/// <summary>
 		/// Bit process, which can run the adapter.
 		/// </summary>
 		[Browsable(false)]
@@ -279,14 +213,33 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual Tuple<string, Type>[] SecurityExtendedFields { get; } = ArrayHelper.Empty<Tuple<string, Type>>();
+		public virtual IEnumerable<Tuple<string, Type>> SecurityExtendedFields { get; } = Enumerable.Empty<Tuple<string, Type>>();
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual bool IsSupportSecuritiesLookupAll => true;
+		public virtual IEnumerable<int> SupportedOrderBookDepths => Enumerable.Empty<int>();
 
 		/// <inheritdoc />
-		public virtual OrderCondition CreateOrderCondition() => null;
+		[Browsable(false)]
+		public virtual bool IsSupportOrderBookIncrements => false;
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual bool IsSupportExecutionsPnL => false;
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual bool IsSecurityNewsOnly => false;
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual Type OrderConditionType => GetType()
+			.GetAttribute<OrderConditionAttribute>()?
+			.ConditionType;
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual bool HeartbeatBeforConnect => false;
 
 		/// <inheritdoc />
 		[CategoryLoc(LocalizedStrings.Str174Key)]
@@ -302,37 +255,7 @@ namespace StockSharp.Messages
 			set => _transactionIdGenerator = value ?? throw new ArgumentNullException(nameof(value));
 		}
 
-		/// <summary>
-		/// Securities and portfolios lookup timeout.
-		/// </summary>
-		/// <remarks>
-		/// By default is 10 seconds.
-		/// </remarks>
-		[Browsable(false)]
-		public TimeSpan LookupTimeOut
-		{
-			get => _secLookupTimeOut.TimeOut;
-			set
-			{
-				_secLookupTimeOut.TimeOut = value;
-				_pfLookupTimeOut.TimeOut = value;
-			}
-		}
-
-		/// <summary>
-		/// Default value for <see cref="AssociatedBoardCode"/>.
-		/// </summary>
-		public const string DefaultAssociatedBoardCode = "ALL";
-
 		/// <inheritdoc />
-		[CategoryLoc(LocalizedStrings.Str186Key)]
-		[DisplayNameLoc(LocalizedStrings.AssociatedSecurityBoardKey)]
-		[DescriptionLoc(LocalizedStrings.Str199Key)]
-		public string AssociatedBoardCode { get; set; } = DefaultAssociatedBoardCode;
-
-		/// <summary>
-		/// Outgoing message event.
-		/// </summary>
 		public event Action<Message> NewOutMessage;
 
 		bool IMessageChannel.IsOpened => true;
@@ -343,6 +266,12 @@ namespace StockSharp.Messages
 
 		void IMessageChannel.Close()
 		{
+		}
+
+		event Action IMessageChannel.StateChanged
+		{
+			add { }
+			remove { }
 		}
 
 		/// <inheritdoc />
@@ -363,30 +292,6 @@ namespace StockSharp.Messages
 
 			InitMessageLocalTime(message);
 
-			switch (message.Type)
-			{
-				case MessageTypes.Reset:
-					_prevTime = default(DateTimeOffset);
-					_secLookupTimeOut.Clear();
-					_pfLookupTimeOut.Clear();
-					break;
-
-				case MessageTypes.PortfolioLookup:
-				{
-					if (!IsSupportNativePortfolioLookup)
-						_pfLookupTimeOut.StartTimeOut(((PortfolioLookupMessage)message).TransactionId);
-
-					break;
-				}
-				case MessageTypes.SecurityLookup:
-				{
-					if (!IsSupportNativeSecurityLookup)
-						_secLookupTimeOut.StartTimeOut(((SecurityLookupMessage)message).TransactionId);
-
-					break;
-				}
-			}
-
 			try
 			{
 				OnSendInMessage(message);
@@ -395,137 +300,10 @@ namespace StockSharp.Messages
 			{
 				this.AddErrorLog(ex);
 
-				switch (message.Type)
-				{
-					case MessageTypes.Connect:
-						SendOutMessage(new ConnectMessage { Error = ex });
-						return;
-
-					case MessageTypes.Disconnect:
-						SendOutMessage(new DisconnectMessage { Error = ex });
-						return;
-
-					case MessageTypes.OrderRegister:
-					case MessageTypes.OrderReplace:
-					case MessageTypes.OrderCancel:
-					case MessageTypes.OrderGroupCancel:
-					{
-						var replyMsg = ((OrderMessage)message).CreateReply();
-						SendOutErrorExecution(replyMsg, ex);
-						return;
-					}
-					case MessageTypes.OrderPairReplace:
-					{
-						var replyMsg = ((OrderPairReplaceMessage)message).Message1.CreateReply();
-						SendOutErrorExecution(replyMsg, ex);
-						return;
-					}
-
-					case MessageTypes.MarketData:
-					{
-						var reply = (MarketDataMessage)message.Clone();
-						reply.OriginalTransactionId = reply.TransactionId;
-						reply.Error = ex;
-						SendOutMessage(reply);
-						return;
-					}
-
-					case MessageTypes.SecurityLookup:
-					{
-						var lookupMsg = (SecurityLookupMessage)message;
-						
-						if (!IsSupportNativeSecurityLookup)
-							_secLookupTimeOut.RemoveTimeOut(lookupMsg.TransactionId);
-
-						SendOutMessage(new SecurityLookupResultMessage
-						{
-							OriginalTransactionId = lookupMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-
-					case MessageTypes.BoardLookup:
-					{
-						var lookupMsg = (BoardLookupMessage)message;
-						SendOutMessage(new BoardLookupResultMessage
-						{
-							OriginalTransactionId = lookupMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-
-					case MessageTypes.BoardRequest:
-					{
-						var requestMsg = (BoardRequestMessage)message;
-						SendOutMessage(new BoardRequestMessage
-						{
-							OriginalTransactionId = requestMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-
-					case MessageTypes.PortfolioLookup:
-					{
-						var lookupMsg = (PortfolioLookupMessage)message;
-
-						if (!IsSupportNativePortfolioLookup)
-							_pfLookupTimeOut.RemoveTimeOut(lookupMsg.TransactionId);
-
-						SendOutMessage(new PortfolioLookupResultMessage
-						{
-							OriginalTransactionId = lookupMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-
-					case MessageTypes.UserLookup:
-					{
-						var lookupMsg = (UserLookupMessage)message;
-						SendOutMessage(new UserLookupResultMessage
-						{
-							OriginalTransactionId = lookupMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-
-					case MessageTypes.UserRequest:
-					{
-						var requestMsg = (UserRequestMessage)message;
-						SendOutMessage(new UserRequestMessage
-						{
-							OriginalTransactionId = requestMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-
-					case MessageTypes.ChangePassword:
-					{
-						var pwdMsg = (ChangePasswordMessage)message;
-						SendOutMessage(new ChangePasswordMessage
-						{
-							OriginalTransactionId = pwdMsg.TransactionId,
-							Error = ex
-						});
-						return;
-					}
-				}
+				message.HandleErrorResponse(ex, CurrentTime, SendOutMessage);
 
 				SendOutError(ex);
 			}
-		}
-
-		private void SendOutErrorExecution(ExecutionMessage execMsg, Exception ex)
-		{
-			execMsg.ServerTime = CurrentTime;
-			execMsg.Error = ex;
-			execMsg.OrderState = OrderStates.Failed;
-			SendOutMessage(execMsg);
 		}
 
 		/// <summary>
@@ -538,14 +316,14 @@ namespace StockSharp.Messages
 		/// Send outgoing message and raise <see cref="NewOutMessage"/> event.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		public virtual void SendOutMessage(Message message)
+		protected virtual void SendOutMessage(Message message)
 		{
 			//// do not process empty change msgs
 			//if (!message.IsBack)
 			//{
 			//	if (message is Level1ChangeMessage l1Msg && l1Msg.Changes.Count == 0)
 			//		return;
-			//	else if (message is BaseChangeMessage<PositionChangeTypes> posMsg && posMsg.Changes.Count == 0)
+			//	else if (message is BasePositionChangeMessage posMsg && posMsg.Changes.Count == 0)
 			//		return;
 			//}
 
@@ -556,45 +334,11 @@ namespace StockSharp.Messages
 
 			switch (message.Type)
 			{
-				case MessageTypes.Security:
-					if (!IsSupportNativeSecurityLookup)
-						_secLookupTimeOut.UpdateTimeOut(((SecurityMessage)message).OriginalTransactionId);
-
-					break;
-
-				case MessageTypes.Portfolio:
-					if (!IsSupportNativePortfolioLookup)
-						_pfLookupTimeOut.UpdateTimeOut(((PortfolioMessage)message).OriginalTransactionId);
-
-					break;
-
-				case MessageTypes.SecurityLookupResult:
-					if (!IsSupportNativeSecurityLookup)
-						_secLookupTimeOut.RemoveTimeOut(((SecurityLookupResultMessage)message).OriginalTransactionId);
-
-					break;
-
-				case MessageTypes.PortfolioLookupResult:
-					if (!IsSupportNativePortfolioLookup)
-						_pfLookupTimeOut.RemoveTimeOut(((PortfolioLookupResultMessage)message).OriginalTransactionId);
-
+				case MessageTypes.TimeFrameLookupResult:
+					_timeFrames = ((TimeFrameLookupResultMessage)message).TimeFrames;
 					break;
 			}
 
-			if (_prevTime != DateTimeOffset.MinValue)
-			{
-				var diff = message.LocalTime - _prevTime;
-
-				_secLookupTimeOut
-					.ProcessTime(diff)
-					.ForEach(id => SendOutMessage(new SecurityLookupResultMessage { OriginalTransactionId = id }));
-
-				_pfLookupTimeOut
-					.ProcessTime(diff)
-					.ForEach(id => SendOutMessage(new PortfolioLookupResultMessage { OriginalTransactionId = id }));
-			}
-
-			_prevTime = message.LocalTime;
 			NewOutMessage?.Invoke(message);
 		}
 
@@ -608,7 +352,7 @@ namespace StockSharp.Messages
 
 			switch (message)
 			{
-				case BaseChangeMessage<PositionChangeTypes> posMsg when posMsg.ServerTime.IsDefault():
+				case PositionChangeMessage posMsg when posMsg.ServerTime.IsDefault():
 					posMsg.ServerTime = CurrentTime;
 					break;
 				case ExecutionMessage execMsg when execMsg.ExecutionType == ExecutionTypes.Transaction && execMsg.ServerTime.IsDefault():
@@ -623,9 +367,18 @@ namespace StockSharp.Messages
 		/// <param name="expected">Is disconnect expected.</param>
 		protected void SendOutDisconnectMessage(bool expected)
 		{
-			SendOutMessage(expected ? (BaseConnectionMessage)new DisconnectMessage() : new ConnectMessage
+			SendOutDisconnectMessage(expected ? null : new InvalidOperationException(LocalizedStrings.Str2551));
+		}
+
+		/// <summary>
+		/// Send to <see cref="SendOutMessage"/> disconnect message.
+		/// </summary>
+		/// <param name="error">Error info. Can be <see langword="null"/>.</param>
+		protected void SendOutDisconnectMessage(Exception error)
+		{
+			SendOutMessage(error == null ? (BaseConnectionMessage)new DisconnectMessage() : new ConnectMessage
 			{
-				Error = new InvalidOperationException(LocalizedStrings.Str2551)
+				Error = error
 			});
 		}
 
@@ -648,41 +401,91 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Initialize a new message <see cref="SecurityMessage"/> and pass it to the method <see cref="SendOutMessage"/>.
+		/// Initialize a new message <see cref="SubscriptionResponseMessage"/> and pass it to the method <see cref="SendOutMessage"/>.
 		/// </summary>
 		/// <param name="originalTransactionId">ID of the original message for which this message is a response.</param>
-		protected void SendOutMarketDataNotSupported(long originalTransactionId)
+		/// <param name="error">Subscribe or unsubscribe error info. To be set if the answer.</param>
+		protected void SendSubscriptionReply(long originalTransactionId, Exception error = null)
 		{
-			SendOutMessage(new MarketDataMessage { OriginalTransactionId = originalTransactionId, IsNotSupported = true });
+			SendOutMessage(originalTransactionId.CreateSubscriptionResponse(error));
 		}
 
-		/// <inheritdoc />
-		public virtual bool IsConnectionAlive()
+		/// <summary>
+		/// Initialize a new message <see cref="SubscriptionResponseMessage"/> and pass it to the method <see cref="SendOutMessage"/>.
+		/// </summary>
+		/// <param name="originalTransactionId">ID of the original message for which this message is a response.</param>
+		protected void SendSubscriptionNotSupported(long originalTransactionId)
 		{
-			return true;
+			SendOutMessage(originalTransactionId.CreateNotSupported());
 		}
 
 		/// <inheritdoc />
 		public virtual IOrderLogMarketDepthBuilder CreateOrderLogMarketDepthBuilder(SecurityId securityId)
+			=> new OrderLogMarketDepthBuilder(securityId);
+
+		private IEnumerable<TimeSpan> _timeFrames = Enumerable.Empty<TimeSpan>();
+
+		/// <summary>
+		/// Get possible time-frames for the specified instrument.
+		/// </summary>
+		/// <param name="securityId">Security ID.</param>
+		/// <param name="from">The initial date from which you need to get data.</param>
+		/// <param name="to">The final date by which you need to get data.</param>
+		/// <returns>Possible time-frames.</returns>
+		protected virtual IEnumerable<TimeSpan> GetTimeFrames(SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to)
+			=> _timeFrames;
+
+		/// <inheritdoc />
+		public virtual IEnumerable<object> GetCandleArgs(Type candleType, SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to)
 		{
-			return new OrderLogMarketDepthBuilder(securityId);
+			return candleType == typeof(TimeFrameCandleMessage)
+				? GetTimeFrames(securityId, from, to).Cast<object>()
+				: Enumerable.Empty<object>();
 		}
 
 		/// <inheritdoc />
-		public virtual IEnumerable<TimeSpan> GetTimeFrames(SecurityId securityId)
+		public virtual TimeSpan GetHistoryStepSize(DataType dataType, out TimeSpan iterationInterval)
 		{
-			return TimeFrames;
+			if (dataType == null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			iterationInterval = TimeSpan.FromSeconds(2);
+
+			if (dataType.IsCandles)
+			{
+				if (!this.IsMarketDataTypeSupported(dataType.ToMarketDataType().Value))
+					return TimeSpan.Zero;
+
+				if (dataType.MessageType == typeof(TimeFrameCandleMessage))
+				{
+					var tf = (TimeSpan)dataType.Arg;
+
+					if (tf.TotalDays <= 1)
+						return TimeSpan.FromDays(30);
+
+					return TimeSpan.MaxValue;
+				}
+			}
+
+			// by default adapter do not provide historical data except candles
+			return TimeSpan.Zero;
 		}
+
+		/// <inheritdoc />
+		public virtual bool IsAllDownloadingSupported(DataType dataType) => false;
+
+		/// <inheritdoc />
+		public virtual bool IsSecurityRequired(DataType dataType) => true;
 
 		/// <inheritdoc />
 		public override void Load(SettingsStorage storage)
 		{
 			Id = storage.GetValue(nameof(Id), Id);
 			HeartbeatInterval = storage.GetValue<TimeSpan>(nameof(HeartbeatInterval));
-			SupportedMessages = storage.GetValue<string[]>(nameof(SupportedMessages)).Select(i => i.To<MessageTypes>()).ToArray();
-			AssociatedBoardCode = storage.GetValue(nameof(AssociatedBoardCode), AssociatedBoardCode);
-			CheckTimeFrameByRequest = storage.GetValue(nameof(CheckTimeFrameByRequest), CheckTimeFrameByRequest);
 
+			if (storage.ContainsKey(nameof(SupportedInMessages)) || storage.ContainsKey("SupportedMessages"))
+				SupportedInMessages = (storage.GetValue<string[]>(nameof(SupportedInMessages)) ?? storage.GetValue<string[]>("SupportedMessages")).Select(i => i.To<MessageTypes>()).ToArray();
+			
 			if (storage.ContainsKey(nameof(ReConnectionSettings)))
 				ReConnectionSettings.Load(storage.GetValue<SettingsStorage>(nameof(ReConnectionSettings)));
 
@@ -694,9 +497,7 @@ namespace StockSharp.Messages
 		{
 			storage.SetValue(nameof(Id), Id);
 			storage.SetValue(nameof(HeartbeatInterval), HeartbeatInterval);
-			storage.SetValue(nameof(SupportedMessages), SupportedMessages.Select(t => t.To<string>()).ToArray());
-			storage.SetValue(nameof(AssociatedBoardCode), AssociatedBoardCode);
-			storage.SetValue(nameof(CheckTimeFrameByRequest), CheckTimeFrameByRequest);
+			storage.SetValue(nameof(SupportedInMessages), SupportedInMessages.Select(t => t.To<string>()).ToArray());
 			storage.SetValue(nameof(ReConnectionSettings), ReConnectionSettings.Save());
 
 			base.Save(storage);
@@ -734,18 +535,6 @@ namespace StockSharp.Messages
 		{
 			_propertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 		}
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool IsSupportStopLoss => false;
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool IsSupportTakeProfit => false;
-
-		/// <inheritdoc />
-		[Browsable(false)]
-		public virtual bool IsSupportWithdraw => false;
 	}
 
 	/// <summary>

@@ -69,16 +69,10 @@ namespace StockSharp.Algo.Indicators
 		[CategoryLoc(LocalizedStrings.GeneralKey)]
 		public AwesomeOscillator Ao { get; }
 
-		/// <summary>
-		/// Whether the indicator is set.
-		/// </summary>
+		/// <inheritdoc />
 		public override bool IsFormed => Sma.IsFormed;
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var aoValue = Ao.Process(input);
@@ -89,28 +83,22 @@ namespace StockSharp.Algo.Indicators
 			return new DecimalIndicatorValue(this, aoValue.GetValue<decimal>());
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
-			Sma.LoadNotNull(settings, nameof(Sma));
-			Ao.LoadNotNull(settings, nameof(Ao));
+			Sma.LoadNotNull(storage, nameof(Sma));
+			Ao.LoadNotNull(storage, nameof(Ao));
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
-			settings.SetValue(nameof(Sma), Sma.Save());
-			settings.SetValue(nameof(Ao), Ao.Save());
+			storage.SetValue(nameof(Sma), Sma.Save());
+			storage.SetValue(nameof(Ao), Ao.Save());
 		}
 	}
 }

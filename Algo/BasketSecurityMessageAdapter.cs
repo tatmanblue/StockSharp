@@ -52,7 +52,7 @@ namespace StockSharp.Algo
 		}
 
 		/// <inheritdoc />
-		public override void SendInMessage(Message message)
+		protected override void OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -106,7 +106,7 @@ namespace StockSharp.Algo
 						}
 
 						foreach (var inner in inners)
-							base.SendInMessage(inner);
+							base.OnSendInMessage(inner);
 					}
 					else
 					{
@@ -117,7 +117,7 @@ namespace StockSharp.Algo
 
 						foreach (var id in info.LegsSubscriptions)
 						{
-							base.SendInMessage(new MarketDataMessage
+							base.OnSendInMessage(new MarketDataMessage
 							{
 								TransactionId = TransactionIdGenerator.GetNextId(),
 								IsSubscribe = false,
@@ -126,7 +126,7 @@ namespace StockSharp.Algo
 						}
 					}
 
-					RaiseNewOutMessage(new MarketDataMessage
+					RaiseNewOutMessage(new SubscriptionResponseMessage
 					{
 						OriginalTransactionId = mdMsg.TransactionId
 					});
@@ -135,7 +135,7 @@ namespace StockSharp.Algo
 				}
 			}
 
-			base.SendInMessage(message);
+			base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -143,9 +143,9 @@ namespace StockSharp.Algo
 		{
 			switch (message.Type)
 			{
-				case MessageTypes.MarketData:
+				case MessageTypes.SubscriptionResponse:
 				{
-					var mdMsg = (MarketDataMessage)message;
+					var mdMsg = (SubscriptionResponseMessage)message;
 					break;
 				}
 
@@ -167,7 +167,7 @@ namespace StockSharp.Algo
 							foreach (var basketMsg in basketMsgs)
 							{
 								basketMsg.OriginalTransactionId = info.TransactionId;
-								RaiseNewOutMessage(basketMsg);
+								base.OnInnerAdapterNewOutMessage(basketMsg);
 							}
 
 							return;
@@ -220,7 +220,7 @@ namespace StockSharp.Algo
 								foreach (var basketMsg in basketMsgs)
 								{
 									basketMsg.OriginalTransactionId = info.TransactionId;
-									RaiseNewOutMessage(basketMsg);
+									base.OnInnerAdapterNewOutMessage(basketMsg);
 								}
 
 								return;
@@ -235,7 +235,10 @@ namespace StockSharp.Algo
 			base.OnInnerAdapterNewOutMessage(message);
 		}
 
-		/// <inheritdoc />
+		/// <summary>
+		/// Create a copy of <see cref="BasketSecurityMessageAdapter"/>.
+		/// </summary>
+		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
 			return new BasketSecurityMessageAdapter(_securityProvider, _processorProvider, _exchangeInfoProvider, InnerAdapter);

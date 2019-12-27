@@ -19,11 +19,11 @@ namespace StockSharp.Messages
 	using System.Runtime.Serialization;
 
 	/// <summary>
-	/// Message security lookup for specified criteria.
+	/// Message portfolio lookup for specified criteria.
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class PortfolioLookupMessage : PortfolioMessage
+	public class PortfolioLookupMessage : PortfolioMessage, INullableSecurityIdMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PortfolioLookupMessage"/>.
@@ -33,22 +33,27 @@ namespace StockSharp.Messages
 		{
 		}
 
+		/// <inheritdoc />
+		public SecurityId? SecurityId { get; set; }
+
 		/// <summary>
 		/// Create a copy of <see cref="PortfolioLookupMessage"/>.
 		/// </summary>
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			return CopyTo(new PortfolioLookupMessage());
+			return CopyTo(new PortfolioLookupMessage { SecurityId = SecurityId } );
 		}
 
-		/// <summary>
-		/// Returns a string that represents the current object.
-		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",TransId={TransactionId},Curr={Currency},Board={BoardCode},IsSubscribe={IsSubscribe}";
+			var str = base.ToString();
+
+			if (SecurityId != null)
+				str += $",Sec={SecurityId}";
+
+			return str;
 		}
 	}
 }

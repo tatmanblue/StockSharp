@@ -24,8 +24,6 @@ namespace StockSharp.Algo.Testing
 	using Ecng.Collections;
 	using Ecng.Common;
 
-	using MoreLinq;
-
 	using StockSharp.Algo.Candles.Compression;
 	using StockSharp.Logging;
 	using StockSharp.BusinessEntities;
@@ -65,12 +63,31 @@ namespace StockSharp.Algo.Testing
 			private readonly HistoryEmulationConnector _parent;
 
 			public HistoryBasketMessageAdapter(HistoryEmulationConnector parent)
-				: base(parent.TransactionIdGenerator, new InMemoryMessageAdapterProvider(), new CandleBuilderProvider(new InMemoryExchangeInfoProvider()))
+				: base(parent.TransactionIdGenerator, new CandleBuilderProvider(new InMemoryExchangeInfoProvider()))
 			{
 				_parent = parent;
 			}
 
 			public override DateTimeOffset CurrentTime => _parent.CurrentTime;
+
+			protected override void OnSendInMessage(Message message)
+			{
+				if (!message.IsBack && message.Type == MessageTypes.MarketData)
+				{
+					var mdMsg = (MarketDataMessage)message;
+
+					if (mdMsg.IsSubscribe)
+					{
+						if (mdMsg.From == null)
+							mdMsg.From = _parent.HistoryMessageAdapterEx.StartDate;
+
+						if (mdMsg.To == null)
+							mdMsg.To = _parent.HistoryMessageAdapterEx.StopDate;
+					}
+				}
+
+				base.OnSendInMessage(message);
+			}
 
 			protected override void OnInnerAdapterNewOutMessage(IMessageAdapter innerAdapter, Message message)
 			{
@@ -110,16 +127,14 @@ namespace StockSharp.Algo.Testing
 
 		private sealed class HistoryEmulationMessageChannel : Cloneable<IMessageChannel>, IMessageChannel
 		{
-			private readonly MessagePriorityQueue _messageQueue = new MessagePriorityQueue();
+			private readonly HistoryEmulationConnector _parent;
+			private readonly MessageByLocalTimeQueue _messageQueue;
 
-			private readonly HistoryMessageAdapter _historyMessageAdapter;
-			private readonly Action<Exception> _errorHandler;
-
-			public HistoryEmulationMessageChannel(HistoryMessageAdapter historyMessageAdapter, Action<Exception> errorHandler)
+			public HistoryEmulationMessageChannel(HistoryEmulationConnector parent)
 			{
-				_historyMessageAdapter = historyMessageAdapter ?? throw new ArgumentNullException(nameof(historyMessageAdapter));
-				_errorHandler = errorHandler ?? throw new ArgumentNullException(nameof(errorHandler));
+				_parent = parent ?? throw new ArgumentNullException(nameof(parent));
 
+				_messageQueue = new MessageByLocalTimeQueue();
 				_messageQueue.Close();
 			}
 
@@ -127,9 +142,14 @@ namespace StockSharp.Algo.Testing
 
 			public bool IsOpened => !_messageQueue.IsClosed;
 
+			public event Action StateChanged;
+
 			public void Open()
 			{
 				_messageQueue.Open();
+				StateChanged?.Invoke();
+
+				var histAdapter = _parent.HistoryMessageAdapterEx;
 
 				ThreadingHelper
 					.Thread(() => CultureInfo.InvariantCulture.DoInCulture(() =>
@@ -138,7 +158,7 @@ namespace StockSharp.Algo.Testing
 						{
 							try
 							{
-								var sended = _historyMessageAdapter.SendOutMessage();
+								var sended = histAdapter.SendOutMessage();
 								var processed = false;
 								
 								while (_messageQueue.TryDequeue(out var message, true, false))
@@ -148,13 +168,15 @@ namespace StockSharp.Algo.Testing
 								}
 
 								if (!sended && !processed && !_messageQueue.IsClosed)
-									Thread.Sleep(100);
+									Thread.Sleep(1000);
 							}
 							catch (Exception ex)
 							{
-								_errorHandler(ex);
+								_parent.SendOutError(ex);
 							}
 						}
+
+						StateChanged?.Invoke();
 					}))
 					.Name("History emulation channel thread.")
 					.Launch();
@@ -180,7 +202,7 @@ namespace StockSharp.Algo.Testing
 
 			public override IMessageChannel Clone()
 			{
-				return new HistoryEmulationMessageChannel(_historyMessageAdapter, _errorHandler);
+				return new HistoryEmulationMessageChannel(_parent);
 			}
 		}
 
@@ -210,6 +232,16 @@ namespace StockSharp.Algo.Testing
 		/// </summary>
 		/// <param name="securityProvider">The provider of information about instruments.</param>
 		/// <param name="portfolios">Portfolios, the operation will be performed with.</param>
+		public HistoryEmulationConnector(ISecurityProvider securityProvider, IEnumerable<Portfolio> portfolios)
+			: this(securityProvider, portfolios, new StorageRegistry())
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="HistoryEmulationConnector"/>.
+		/// </summary>
+		/// <param name="securityProvider">The provider of information about instruments.</param>
+		/// <param name="portfolios">Portfolios, the operation will be performed with.</param>
 		/// <param name="storageRegistry">Market data storage.</param>
 		public HistoryEmulationConnector(ISecurityProvider securityProvider, IEnumerable<Portfolio> portfolios, IStorageRegistry storageRegistry)
 		{
@@ -225,22 +257,18 @@ namespace StockSharp.Algo.Testing
 			// чтобы каждый раз при повторной эмуляции получать одинаковые номера транзакций
 			TransactionIdGenerator = new IncrementalIdGenerator();
 
-			_initialMoney = portfolios.ToDictionary(pf => pf, pf => pf.BeginValue);
-			EntityFactory = new EmulationEntityFactory(securityProvider, _initialMoney.Keys);
+			EntityFactory = new EmulationEntityFactory(securityProvider, portfolios);
 			
 			RiskManager = null;
 
-			SupportSubscriptionTracking = true;
 			SupportBasketSecurities = true;
 
-			HistoryMessageAdapter = new HistoryMessageAdapter(TransactionIdGenerator, securityProvider) { StorageRegistry = storageRegistry };
-
-			InMessageChannel = new HistoryEmulationMessageChannel(HistoryMessageAdapter, SendOutError);
+			InMessageChannel = new HistoryEmulationMessageChannel(this);
 			OutMessageChannel = new PassThroughMessageChannel();
 
 			Adapter = new HistoryBasketMessageAdapter(this);
 			Adapter.InnerAdapters.Add(EmulationAdapter);
-			Adapter.InnerAdapters.Add(HistoryMessageAdapter);
+			Adapter.InnerAdapters.Add(new HistoryMessageAdapter(TransactionIdGenerator, securityProvider) { StorageRegistry = storageRegistry });
 
 			Adapter.LatencyManager = null;
 			Adapter.CommissionManager = null;
@@ -248,40 +276,43 @@ namespace StockSharp.Algo.Testing
 			Adapter.SlippageManager = null;
 
 			// при тестировании по свечкам, время меняется быстрее и таймаут должен быть больше 30с.
-			ReConnectionSettings.TimeOutInterval = TimeSpan.MaxValue;
+			//ReConnectionSettings.TimeOutInterval = TimeSpan.MaxValue;
 
 			//MaxMessageCount = 1000;
 
 			TradesKeepCount = 0;
 
-			RaiseConnectedOnFirstAdapter = false;
+			Adapter.SupportCandlesCompression = false;
+			Adapter.SupportBuildingFromOrderLog = false;
+			Adapter.SupportPartialDownload = false;
+			Adapter.SupportLookupTracking = false;
+			Adapter.SupportOrderBookTruncate = false;
+			Adapter.ConnectDisconnectEventOnFirstAdapter = false;
 		}
+
+		/// <summary>
+		/// Historical message adapter.
+		/// </summary>
+		public IHistoryMessageAdapter HistoryMessageAdapterEx => (IHistoryMessageAdapter)MarketDataAdapter;
 
 		/// <summary>
 		/// The adapter, receiving messages form the storage <see cref="IStorageRegistry"/>.
 		/// </summary>
-		public HistoryMessageAdapter HistoryMessageAdapter { get; }
+		public HistoryMessageAdapter HistoryMessageAdapter => (HistoryMessageAdapter)MarketDataAdapter;
 
-		/// <summary>
-		/// The maximal size of the message queue, up to which history data are read. By default, it is equal to <see cref="Testing.HistoryMessageAdapter.DefaultMaxMessageCount"/>.
-		/// </summary>
-		public int MaxMessageCount
-		{
-			get => HistoryMessageAdapter.MaxMessageCount;
-			set => HistoryMessageAdapter.MaxMessageCount = value;
-		}
+		///// <summary>
+		///// The maximal size of the message queue, up to which history data are read. By default, it is equal to <see cref="Testing.HistoryMessageAdapter.DefaultMaxMessageCount"/>.
+		///// </summary>
+		//public int MaxMessageCount
+		//{
+		//	get => HistoryMessageAdapter.MaxMessageCount;
+		//	set => HistoryMessageAdapter.MaxMessageCount = value;
+		//}
 
-		private readonly Dictionary<Portfolio, decimal?> _initialMoney;
-
-		/// <summary>
-		/// The initial size of monetary funds on accounts.
-		/// </summary>
-		public IDictionary<Portfolio, decimal?> InitialMoney => _initialMoney;
-
-		/// <summary>
-		/// The number of loaded messages.
-		/// </summary>
-		public int LoadedMessageCount => HistoryMessageAdapter.LoadedMessageCount;
+		///// <summary>
+		///// The number of loaded messages.
+		///// </summary>
+		//public int LoadedMessageCount => HistoryMessageAdapter.LoadedMessageCount;
 
 		/// <summary>
 		/// The number of processed messages.
@@ -357,13 +388,11 @@ namespace StockSharp.Algo.Testing
 		/// <inheritdoc />
 		public override TimeSpan MarketTimeChangedInterval
 		{
-			get => HistoryMessageAdapter.MarketTimeChangedInterval;
-			set => HistoryMessageAdapter.MarketTimeChangedInterval = value;
+			get => HistoryMessageAdapterEx.MarketTimeChangedInterval;
+			set => HistoryMessageAdapterEx.MarketTimeChangedInterval = value;
 		}
 
-		/// <summary>
-		/// Clear cache.
-		/// </summary>
+		/// <inheritdoc />
 		public override void ClearCache()
 		{
 			base.ClearCache();
@@ -374,23 +403,19 @@ namespace StockSharp.Algo.Testing
 			IsFinished = false;
 		}
 
-		/// <summary>
-		/// Disconnect from trading system.
-		/// </summary>
+		/// <inheritdoc />
 		protected override void OnDisconnect()
 		{
 			if (State != EmulationStates.Stopped && State != EmulationStates.Stopping)
 				SendEmulationState(EmulationStates.Stopping);
 		}
 
-		/// <summary>
-		/// To release allocated resources. In particular, to disconnect from the trading system via <see cref="Connector.Disconnect"/>.
-		/// </summary>
+		/// <inheritdoc />
 		protected override void DisposeManaged()
 		{
 			base.DisposeManaged();
 
-			HistoryMessageAdapter.Dispose();
+			MarketDataAdapter.DoDispose();
 		}
 
 		/// <summary>
@@ -414,26 +439,13 @@ namespace StockSharp.Algo.Testing
 			SendInMessage(new EmulationStateMessage { State = state });
 		}
 
-		/// <summary>
-		/// To process the message, containing market data.
-		/// </summary>
-		/// <param name="message">The message, containing market data.</param>
+		/// <inheritdoc />
 		protected override void OnProcessMessage(Message message)
 		{
 			try
 			{
 				switch (message.Type)
 				{
-					case MessageTypes.Connect:
-					{
-						base.OnProcessMessage(message);
-
-						if (message.Adapter == TransactionAdapter)
-							_initialMoney.ForEach(p => SendPortfolio(p.Key));
-
-						break;
-					}
-
 					case ExtendedMessageTypes.Last:
 					{
 						var lastMsg = (LastMessage)message;
@@ -511,32 +523,6 @@ namespace StockSharp.Algo.Testing
 			}
 		}
 
-		private void SendPortfolio(Portfolio portfolio)
-		{
-			SendInMessage(portfolio.ToMessage());
-
-			var money = _initialMoney[portfolio];
-
-			SendInMessage(
-				EmulationAdapter
-					.CreatePortfolioChangeMessage(portfolio.Name)
-						.TryAdd(PositionChangeTypes.BeginValue, money, true)
-						.TryAdd(PositionChangeTypes.CurrentValue, money, true)
-						.Add(PositionChangeTypes.BlockedValue, 0m));
-		}
-
-		/// <summary>
-		/// Subscribe on the portfolio changes.
-		/// </summary>
-		/// <param name="portfolio">Portfolio for subscription.</param>
-		protected override void OnRegisterPortfolio(Portfolio portfolio)
-		{
-			_initialMoney.TryAdd(portfolio, portfolio.BeginValue);
-
-			if (State == EmulationStates.Started)
-				SendPortfolio(portfolio);
-		}
-
 		/// <summary>
 		/// Register historical data source.
 		/// </summary>
@@ -544,17 +530,19 @@ namespace StockSharp.Algo.Testing
 		/// <param name="dataType">Data type.</param>
 		/// <param name="arg">The parameter associated with the <paramref name="dataType"/> type. For example, <see cref="CandleMessage.Arg"/>.</param>
 		/// <param name="getMessages">Historical data source.</param>
+		[Obsolete("Uses custom adapter implementation.")]
 		public void RegisterHistorySource(Security security, MarketDataTypes dataType, object arg, Func<DateTimeOffset, IEnumerable<Message>> getMessages)
 		{
 			SendInHistorySourceMessage(security, dataType, arg, getMessages);
 		}
 
 		/// <summary>
-		/// Unregister historical data source, previously registeted by <see cref="RegisterHistorySource"/>.
+		/// Unregister historical data source, previously registered by <see cref="RegisterHistorySource"/>.
 		/// </summary>
 		/// <param name="security">Instrument. If passed <see langword="null"/> the source will be removed for all subscriptions.</param>
 		/// <param name="dataType">Data type.</param>
 		/// <param name="arg">The parameter associated with the <paramref name="dataType"/> type. For example, <see cref="CandleMessage.Arg"/>.</param>
+		[Obsolete]
 		public void UnRegisterHistorySource(Security security, MarketDataTypes dataType, object arg)
 		{
 			SendInHistorySourceMessage(security, dataType, arg, null);
@@ -565,7 +553,7 @@ namespace StockSharp.Algo.Testing
 			SendInMessage(new HistorySourceMessage
 			{
 				IsSubscribe = getMessages != null,
-				SecurityId = security?.ToSecurityId() ?? default(SecurityId),
+				SecurityId = security?.ToSecurityId(copyExtended: true) ?? default,
 				DataType = dataType,
 				Arg = arg,
 				GetMessages = getMessages

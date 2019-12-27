@@ -42,7 +42,7 @@ namespace StockSharp.Messages
 	/// <summary>
 	/// Base message adapter interface which convert messages <see cref="Message"/> to native commands and back.
 	/// </summary>
-	public interface IMessageAdapter : IMessageChannel, IPersistable, ILogReceiver, IMessageAdapterExtension
+	public interface IMessageAdapter : IMessageChannel, IPersistable, ILogReceiver
 	{
 		/// <summary>
 		/// Transaction id generator.
@@ -50,14 +50,24 @@ namespace StockSharp.Messages
 		IdGenerator TransactionIdGenerator { get; }
 
 		/// <summary>
+		/// Possible supported by adapter message types.
+		/// </summary>
+		IEnumerable<MessageTypeInfo> PossibleSupportedMessages { get; set; }
+
+		/// <summary>
 		/// Supported by adapter message types.
 		/// </summary>
-		MessageTypes[] SupportedMessages { get; set; }
+		IEnumerable<MessageTypes> SupportedInMessages { get; set; }
+
+		/// <summary>
+		/// Supported by adapter message types.
+		/// </summary>
+		IEnumerable<MessageTypes> SupportedOutMessages { get; set; }
 
 		/// <summary>
 		/// Supported by adapter market data types.
 		/// </summary>
-		MarketDataTypes[] SupportedMarketDataTypes { get; set; }
+		IEnumerable<MarketDataTypes> SupportedMarketDataTypes { get; set; }
 
 		/// <summary>
 		/// Description of the class of securities, depending on which will be marked in the <see cref="SecurityMessage.SecurityType"/> and <see cref="SecurityId.BoardCode"/>.
@@ -65,14 +75,14 @@ namespace StockSharp.Messages
 		IDictionary<string, RefPair<SecurityTypes, string>> SecurityClassInfo { get; }
 
 		/// <summary>
-		/// Possible time-frames.
+		/// Possible options for candles building.
 		/// </summary>
-		IEnumerable<TimeSpan> TimeFrames { get; }
+		IEnumerable<Level1Fields> CandlesBuildFrom { get; }
 
 		/// <summary>
 		/// Check possible time-frame by request.
 		/// </summary>
-		bool CheckTimeFrameByRequest { get; set; }
+		bool CheckTimeFrameByRequest { get; }
 
 		/// <summary>
 		/// Connection tracking settings <see cref="IMessageAdapter"/> with a server.
@@ -83,21 +93,6 @@ namespace StockSharp.Messages
 		///  Server check interval for track the connection alive. The value is <see cref="TimeSpan.Zero"/> turned off tracking.
 		/// </summary>
 		TimeSpan HeartbeatInterval { get; set; }
-
-		/// <summary>
-		/// <see cref="PortfolioLookupMessage"/> required to get portfolios and positions.
-		/// </summary>
-		bool PortfolioLookupRequired { get; }
-
-		/// <summary>
-		/// <see cref="SecurityLookupMessage"/> required to get securities.
-		/// </summary>
-		bool SecurityLookupRequired { get; }
-
-		/// <summary>
-		/// <see cref="OrderStatusMessage"/> required to get orders and own trades.
-		/// </summary>
-		bool OrderStatusRequired { get; }
 
 		/// <summary>
 		/// The storage name, associated with the adapter.
@@ -125,16 +120,6 @@ namespace StockSharp.Messages
 		bool IsSupportSubscriptions { get; }
 
 		/// <summary>
-		/// Support filtering subscriptions (subscribe/unsubscribe for specified security).
-		/// </summary>
-		bool IsSupportSubscriptionBySecurity { get; }
-
-		/// <summary>
-		/// Support portfolio subscriptions.
-		/// </summary>
-		bool IsSupportSubscriptionByPortfolio { get; }
-
-		/// <summary>
 		/// Support candles subscription and live updates.
 		/// </summary>
 		bool IsSupportCandlesUpdates { get; }
@@ -150,31 +135,42 @@ namespace StockSharp.Messages
 		OrderCancelVolumeRequireTypes? OrderCancelVolumeRequired { get; }
 
 		/// <summary>
-		/// Board code for combined security.
-		/// </summary>
-		string AssociatedBoardCode { get; }
-
-		/// <summary>
 		/// Names of extended security fields in <see cref="SecurityMessage"/>.
 		/// </summary>
-		Tuple<string, Type>[] SecurityExtendedFields { get; }
+		IEnumerable<Tuple<string, Type>> SecurityExtendedFields { get; }
 
 		/// <summary>
-		/// Support lookup all securities.
+		/// Available options for <see cref="MarketDataMessage.MaxDepth"/>.
 		/// </summary>
-		bool IsSupportSecuritiesLookupAll { get; }
+		IEnumerable<int> SupportedOrderBookDepths { get; }
 
 		/// <summary>
-		/// Create condition for order type <see cref="OrderTypes.Conditional"/>, that supports the adapter.
+		/// Adapter translates incremental order books.
 		/// </summary>
-		/// <returns>Order condition. If the connection does not support the order type <see cref="OrderTypes.Conditional"/>, it will be returned <see langword="null" />.</returns>
-		OrderCondition CreateOrderCondition();
+		bool IsSupportOrderBookIncrements { get; }
 
 		/// <summary>
-		/// Check the connection is alive. Uses only for connected states.
+		/// Adapter fills <see cref="ExecutionMessage.PnL"/>.
 		/// </summary>
-		/// <returns><see langword="true" />, is the connection still alive, <see langword="false" />, if the connection was rejected.</returns>
-		bool IsConnectionAlive();
+		bool IsSupportExecutionsPnL { get; }
+
+		/// <summary>
+		/// Adapter provides news related with specified security.
+		/// </summary>
+		bool IsSecurityNewsOnly { get; }
+
+		/// <summary>
+		/// Type of <see cref="OrderCondition"/>.
+		/// </summary>
+		/// <remarks>
+		/// If the connection does not support the order type <see cref="OrderTypes.Conditional"/>, it will be returned <see langword="null" />.
+		/// </remarks>
+		Type OrderConditionType { get; }
+
+		/// <summary>
+		/// Start sending <see cref="TimeMessage"/> before connection established.
+		/// </summary>
+		bool HeartbeatBeforConnect { get; }
 
 		/// <summary>
 		/// Create market depth builder.
@@ -184,10 +180,35 @@ namespace StockSharp.Messages
 		IOrderLogMarketDepthBuilder CreateOrderLogMarketDepthBuilder(SecurityId securityId);
 
 		/// <summary>
-		/// Get possible time-frames for the specified instrument.
+		/// Get possible args for the specified candle type and instrument.
 		/// </summary>
+		/// <param name="candleType">The type of the message <see cref="CandleMessage"/>.</param>
 		/// <param name="securityId">Security ID.</param>
-		/// <returns>Possible time-frames.</returns>
-		IEnumerable<TimeSpan> GetTimeFrames(SecurityId securityId);
+		/// <param name="from">The initial date from which you need to get data.</param>
+		/// <param name="to">The final date by which you need to get data.</param>
+		/// <returns>Possible args.</returns>
+		IEnumerable<object> GetCandleArgs(Type candleType, SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to);
+
+		/// <summary>
+		/// Get maximum size step allowed for historical download.
+		/// </summary>
+		/// <param name="dataType">Data type info.</param>
+		/// <param name="iterationInterval">Interval between iterations.</param>
+		/// <returns>Step.</returns>
+		TimeSpan GetHistoryStepSize(DataType dataType, out TimeSpan iterationInterval);
+
+		/// <summary>
+		/// Is for the specified <paramref name="dataType"/> all securities downloading enabled.
+		/// </summary>
+		/// <param name="dataType">Data type info.</param>
+		/// <returns>Check result.</returns>
+		bool IsAllDownloadingSupported(DataType dataType);
+
+		/// <summary>
+		/// Support filtering subscriptions (subscribe/unsubscribe for specified security).
+		/// </summary>
+		/// <param name="dataType">Data type info.</param>
+		/// <returns>Check result.</returns>
+		bool IsSecurityRequired(DataType dataType);
 	}
 }

@@ -60,18 +60,9 @@ namespace StockSharp.Algo
 		{
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (message.IsBack)
-			{
-				base.OnInnerAdapterNewOutMessage(message);
-				return;
-			}
-
 			switch (message.Type)
 			{
 				case MessageTypes.Security:
@@ -81,7 +72,7 @@ namespace StockSharp.Algo
 					{
 						var clone = (SecurityMessage)secMsg.Clone();
 						clone.SecurityId = CreateAssociatedId(clone.SecurityId);
-						RaiseNewOutMessage(clone);
+						base.OnInnerAdapterNewOutMessage(clone);
 					}
 					break;
 				}
@@ -95,7 +86,7 @@ namespace StockSharp.Algo
 						// обновление BestXXX для ALL из конкретных тикеров
 						var clone = (Level1ChangeMessage)level1Msg.Clone();
 						clone.SecurityId = CreateAssociatedId(clone.SecurityId);
-						RaiseNewOutMessage(clone);
+						base.OnInnerAdapterNewOutMessage(clone);
 					}
 
 					break;
@@ -112,11 +103,11 @@ namespace StockSharp.Algo
 					//	return;
 
 					var builder = _quoteChangeDepthBuilders
-						.SafeAdd(quoteMsg.SecurityId.SecurityCode, c => new QuoteChangeDepthBuilder(c, AssociatedBoardCode));
+						.SafeAdd(quoteMsg.SecurityId.SecurityCode, c => new QuoteChangeDepthBuilder(c, SecurityId.AssociatedBoardCode));
 
 					quoteMsg = builder.Process(quoteMsg);
 
-					RaiseNewOutMessage(quoteMsg);
+					base.OnInnerAdapterNewOutMessage(quoteMsg);
 
 					break;
 				}
@@ -134,7 +125,7 @@ namespace StockSharp.Algo
 							{
 								var clone = (ExecutionMessage)executionMsg.Clone();
 								clone.SecurityId = CreateAssociatedId(clone.SecurityId);
-								RaiseNewOutMessage(clone);
+								base.OnInnerAdapterNewOutMessage(clone);
 							}
 
 							break;
@@ -150,7 +141,7 @@ namespace StockSharp.Algo
 
 		private bool IsAssociated(string boardCode)
 		{
-			return /*boardCode.IsEmpty() || */boardCode.CompareIgnoreCase(AssociatedBoardCode);
+			return /*boardCode.IsEmpty() || */boardCode.CompareIgnoreCase(SecurityId.AssociatedBoardCode);
 		}
 
 		private SecurityId CreateAssociatedId(SecurityId securityId)
@@ -158,8 +149,7 @@ namespace StockSharp.Algo
 			return new SecurityId
 			{
 				SecurityCode = securityId.SecurityCode,
-				BoardCode = AssociatedBoardCode,
-				SecurityType = securityId.SecurityType,
+				BoardCode = SecurityId.AssociatedBoardCode,
 				Bloomberg = securityId.Bloomberg,
 				Cusip = securityId.Cusip,
 				IQFeed = securityId.IQFeed,

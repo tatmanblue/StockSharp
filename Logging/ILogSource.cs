@@ -38,7 +38,7 @@ namespace StockSharp.Logging
 		/// <summary>
 		/// The source name.
 		/// </summary>
-		string Name { get; }
+		string Name { get; set; }
 
 		/// <summary>
 		/// Parental logs source.
@@ -79,24 +79,20 @@ namespace StockSharp.Logging
 			_name = GetType().GetDisplayName();
 		}
 
-		/// <summary>
-		/// The unique identifier of the source.
-		/// </summary>
+		/// <inheritdoc />
 		[Browsable(false)]
 		public virtual Guid Id { get; set; } = Guid.NewGuid();
 
 		private string _name;
 
-		/// <summary>
-		/// Source name (to distinguish in log files).
-		/// </summary>
+		/// <inheritdoc />
 		[ReadOnly(true)]
 		[Display(
 			ResourceType = typeof(LocalizedStrings),
 			Name = LocalizedStrings.NameKey,
 			Description = LocalizedStrings.Str7Key,
 			GroupName = LocalizedStrings.LoggingKey,
-			Order = 0)]
+			Order = 1000)]
 		public virtual string Name
 		{
 			get => _name;
@@ -111,9 +107,7 @@ namespace StockSharp.Logging
 
 		private ILogSource _parent;
 
-		/// <summary>
-		/// Parent.
-		/// </summary>
+		/// <inheritdoc />
 		[Browsable(false)]
 		public ILogSource Parent
 		{
@@ -133,34 +127,26 @@ namespace StockSharp.Logging
 			}
 		}
 
-		/// <summary>
-		/// The logging level. The default is set to <see cref="LogLevels.Inherit"/>.
-		/// </summary>
+		/// <inheritdoc />
 		[Display(
 			ResourceType = typeof(LocalizedStrings),
 			Name = LocalizedStrings.Str9Key,
 			Description = LocalizedStrings.Str9Key + LocalizedStrings.Dot,
 			GroupName = LocalizedStrings.LoggingKey,
-			Order = 1)]
+			Order = 1001)]
 		public virtual LogLevels LogLevel { get; set; } = LogLevels.Inherit;
 
-		/// <summary>
-		/// Current time, which will be passed to the <see cref="LogMessage.Time"/>.
-		/// </summary>
+		/// <inheritdoc />
 		[Browsable(false)]
 		public virtual DateTimeOffset CurrentTime => TimeHelper.NowWithOffset;
 
-		/// <summary>
-		/// Whether the source is the root (even if <see cref="ILogSource.Parent"/> is not equal to <see langword="null" />).
-		/// </summary>
+		/// <inheritdoc />
 		[Browsable(false)]
 		public bool IsRoot { get; set; }
 
 		private Action<LogMessage> _log;
 
-		/// <summary>
-		/// New debug message event.
-		/// </summary>
+		/// <inheritdoc />
 		public event Action<LogMessage> Log
 		{
 			add => _log += value;
@@ -186,10 +172,7 @@ namespace StockSharp.Logging
 			parent?.AddLog(message);
 		}
 
-		/// <summary>
-		/// Returns a string that represents the current object.
-		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <inheritdoc />
 		public override string ToString()
 		{
 			return Name;
@@ -202,6 +185,7 @@ namespace StockSharp.Logging
 		public virtual void Load(SettingsStorage storage)
 		{
 			LogLevel = storage.GetValue(nameof(LogLevel), LogLevels.Inherit);
+			Name = storage.GetValue(nameof(Name), Name);
 		}
 
 		/// <summary>
@@ -211,6 +195,7 @@ namespace StockSharp.Logging
 		public virtual void Save(SettingsStorage storage)
 		{
 			storage.SetValue(nameof(LogLevel), LogLevel.To<string>());
+			storage.SetValue(nameof(Name), Name);
 		}
 	}
 }

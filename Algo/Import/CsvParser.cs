@@ -113,11 +113,11 @@ namespace StockSharp.Algo.Import
 		/// <param name="fileName">File name.</param>
 		/// <param name="isCancelled">The processor, returning process interruption sign.</param>
 		/// <returns>Parsed instances.</returns>
-		public IEnumerable<dynamic> Parse(string fileName, Func<bool> isCancelled = null)
+		public IEnumerable<Message> Parse(string fileName, Func<bool> isCancelled = null)
 		{
 			var columnSeparator = ColumnSeparator.ReplaceIgnoreCase("TAB", "\t");
 
-			using (new Scope<TimeZoneInfo>(TimeZone))
+			using (TimeZone.ToScope())
 			using (var reader = new CsvFileReader(fileName) { Delimiter = columnSeparator[0] })
 			{
 				var skipLines = SkipFromHeader;
@@ -128,6 +128,35 @@ namespace StockSharp.Algo.Import
 				fields.ForEach(f => f.Reset());
 
 				var cells = new List<string>();
+
+				var isDepth = DataType == DataType.MarketDepth;
+				var isSecurities = DataType == DataType.Securities;
+
+				var quoteMsg = isDepth ? new QuoteChangeMessage() : null;
+				var bids = isDepth ? new List<QuoteChange>() : null;
+				var asks = isDepth ? new List<QuoteChange>() : null;
+
+				void AddQuote(TimeQuoteChange quote)
+				{
+					(quote.Side == Sides.Buy ? bids : asks).Add(quote);
+				}
+
+				void FillQuote(TimeQuoteChange quote)
+				{
+					quoteMsg.ServerTime = quote.ServerTime;
+					quoteMsg.SecurityId = quote.SecurityId;
+					quoteMsg.LocalTime = quote.LocalTime;
+
+					AddQuote(quote);
+				}
+
+				void FlushQuotes()
+				{
+					quoteMsg.Bids = bids.ToArray();
+					quoteMsg.Asks = asks.ToArray();
+				}
+
+				var adapters = new Dictionary<Type, IMessageAdapter>();
 
 				while (reader.ReadRow(cells))
 				{
@@ -140,9 +169,9 @@ namespace StockSharp.Algo.Import
 						continue;
 					}
 
-					var msgType = DataType.MessageType;
+					dynamic instance = CreateInstance(isDepth, isSecurities);
 
-					dynamic instance = CreateInstance(msgType);
+					var mappings = new Dictionary<string, SecurityIdMapping>(StringComparer.InvariantCultureIgnoreCase);
 
 					foreach (var field in fields)
 					{
@@ -157,7 +186,19 @@ namespace StockSharp.Algo.Import
 									field.ApplyDefaultValue(instance);
 							}
 							else
-								field.ApplyFileValue(instance, cells[field.Order.Value]);
+							{
+								var cell = cells[field.Order.Value];
+
+								if (field.IsAdapter)
+								{
+									var adapter = adapters.SafeAdd(field.AdapterType, key => key.CreateAdapter());
+									var info = mappings.SafeAdd(adapter.StorageName, key => new SecurityIdMapping());
+									
+									field.ApplyFileValue(info, cell);
+								}
+								else
+									field.ApplyFileValue(instance, cell);
+							}
 						}
 						catch (Exception ex)
 						{
@@ -167,21 +208,86 @@ namespace StockSharp.Algo.Import
 
 					if (!(instance is SecurityMessage secMsg))
 					{
-						if (instance is ExecutionMessage execMsg)
-							execMsg.ExecutionType = (ExecutionTypes)DataType.Arg;
-
-						if (instance is CandleMessage candleMsg)
-							candleMsg.State = CandleStates.Finished;
+						switch (instance)
+						{
+							case ExecutionMessage execMsg:
+								execMsg.ExecutionType = (ExecutionTypes)DataType.Arg;
+								break;
+							case CandleMessage candleMsg:
+								candleMsg.State = CandleStates.Finished;
+								break;
+						}
 					}
-					else if (secMsg.SecurityId.SecurityCode.IsEmpty() || secMsg.SecurityId.BoardCode.IsEmpty())
+					else
 					{
-						if (!IgnoreNonIdSecurities)
-							this.AddErrorLog(LocalizedStrings.LineNoSecurityId.Put(reader.CurrLine));
+						if (secMsg.SecurityId.SecurityCode.IsEmpty() || secMsg.SecurityId.BoardCode.IsEmpty())
+						{
+							if (!IgnoreNonIdSecurities)
+								this.AddErrorLog(LocalizedStrings.LineNoSecurityId.Put(reader.CurrLine));
 
-						continue;
+							continue;
+						}
+						else
+						{
+							foreach (var pair in mappings)
+							{
+								var info = pair.Value;
+
+								if (info.AdapterId.SecurityCode.IsEmpty())
+									continue;
+
+								if (info.AdapterId.BoardCode.IsEmpty())
+								{
+									var adapterId = info.AdapterId;
+									adapterId.BoardCode = secMsg.SecurityId.BoardCode;
+									info.AdapterId = adapterId;
+								}
+
+								info.StockSharpId = secMsg.SecurityId;
+
+								yield return new SecurityMappingMessage
+								{
+									StorageName = pair.Key,
+									Mapping = info,
+								};
+							}
+						}
 					}
 
-					yield return instance;
+					if (quoteMsg != null)
+					{
+						var quote = (TimeQuoteChange)instance;
+
+						if (bids.IsEmpty() && asks.IsEmpty())
+						{
+							FillQuote(quote);
+						}
+						else
+						{
+							if (quoteMsg.ServerTime == quote.ServerTime && quoteMsg.SecurityId == quote.SecurityId)
+							{
+								AddQuote(quote);
+							}
+							else
+							{
+								FlushQuotes();
+								yield return quoteMsg;
+
+								quoteMsg = new QuoteChangeMessage();
+								bids = new List<QuoteChange>();
+								asks = new List<QuoteChange>();
+								FillQuote(quote);
+							}
+						}
+					}
+					else
+						yield return instance;
+				}
+
+				if (quoteMsg != null && !bids.IsEmpty() && !asks.IsEmpty())
+				{
+					FlushQuotes();
+					yield return quoteMsg;
 				}
 			}
 		}
@@ -189,15 +295,14 @@ namespace StockSharp.Algo.Import
 		/// <summary>
 		/// Create instance for the specified type.
 		/// </summary>
-		/// <param name="msgType">Message type.</param>
 		/// <returns>Instance.</returns>
-		protected virtual object CreateInstance(Type msgType)
+		private object CreateInstance(bool isDepth, bool isSecurities)
 		{
-			var instance = msgType == typeof(QuoteChangeMessage)
+			var instance = isDepth
 				? new TimeQuoteChange()
-				: msgType.CreateInstance<object>();
+				: DataType.MessageType.CreateInstance<object>();
 
-			if (msgType == typeof(SecurityMessage) && ExtendedInfoStorageItem != null)
+			if (isSecurities && ExtendedInfoStorageItem != null)
 				((SecurityMessage)instance).ExtensionInfo = new Dictionary<string, object>(StringComparer.InvariantCultureIgnoreCase);
 
 			return instance;

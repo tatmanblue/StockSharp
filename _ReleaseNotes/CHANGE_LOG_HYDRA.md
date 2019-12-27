@@ -1,5 +1,37 @@
 StockSharp Data (Hydra) Change log
 ========================
+## v4.4.17:
+* (feature) Plugins refactoring. Hydra now uses IMessageAdapter directly.
+* (feature) Task pane redesign.
+* (feature) CandlesBuildFrom separated for each candles series.
+* (bug) DukasCopy source. CandlesBuildFrom fix.
+* (feature) Tradier source.
+* (feature) Bitmex. Testnet supported.
+* (feature) Finam. Reset cached ids.
+* (bug) Analytics. Fix histogram chart.
+* (feature) File format preview for multiples securities export. https://stocksharp.ru/posts/m/47202/
+* (feature) Backup and HydraServer tasks implemented connect Verify
+* (feature) Added default option for txt export. https://stocksharp.ru/posts/m/47207/
+* (feature) OpenECry. Certification passed.
+* (bug) Highest, Lowest, Vidya, Envelope, MACD indicators fix.
+* (feature) Sterling. Updated to 11.7 version.
+* (feature) Oanda. Level1 support removed.
+* (feature) QUIK DDE, QUIK Trans2Quik excluded.
+* (feature) CSV connector.
+* (feature) Security. MinVolume, Shortable, UnderlyingSecuityMinVolume and FaceValue properties added.
+* (feature) Deribit. V2 protocol supported.
+* (feature) BitStamp. V2 web sockets supported.
+* (feature) Plaza. Spectra 6.2.20 supported.
+* (feature) InteractiveBrokers. V9.76.01
+* (feature) Micex TEAP. Stock32, Stock33, Stock34, Currency32, Currency33, Currency34 interfaces added.
+* (feature) QUIK. 64 bit support.
+* (feature) QUIK. Candles BuildFrom mode supported.
+* (feature) QUIK. Terminal connection lost notification supported.
+* (bug) Import, Analytics panel fixes.
+* (feature) Upbit, CoinEx, FatBTC, LATOKEN connectors.
+* (bug) ExportTask fixes.
+* (feature) Converter supports Begin/End dates.
+
 ## v4.4.16:
 * (feature) SQLite->CSV migrated.
 * (feature) Bithumb. Prime service supported.

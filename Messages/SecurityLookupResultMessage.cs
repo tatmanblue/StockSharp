@@ -23,51 +23,14 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class SecurityLookupResultMessage : Message
+	public class SecurityLookupResultMessage : BaseResultMessage<SecurityLookupResultMessage>
 	{
-		/// <summary>
-		/// ID of the original message <see cref="SecurityLookupMessage.TransactionId"/> for which this message is a response.
-		/// </summary>
-		[DataMember]
-		public long OriginalTransactionId { get; set; }
-
-		/// <summary>
-		/// Error info.
-		/// </summary>
-		[DataMember]
-		public Exception Error { get; set; }
-
 		/// <summary>
 		/// Initializes a new instance of the <see cref="SecurityLookupResultMessage"/>.
 		/// </summary>
 		public SecurityLookupResultMessage()
 			: base(MessageTypes.SecurityLookupResult)
 		{
-		}
-
-		/// <summary>
-		/// Create a copy of <see cref="SecurityLookupResultMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
-		{
-			return new SecurityLookupResultMessage
-			{
-				OriginalTransactionId = OriginalTransactionId,
-				LocalTime = LocalTime,
-				Error = Error
-			};
-		}
-
-		/// <inheritdoc />
-		public override string ToString()
-		{
-			var str = base.ToString() + $",Orig={OriginalTransactionId}";
-
-			if (Error != null)
-				str += $",Error={Error.Message}";
-
-			return str;
 		}
 	}
 }

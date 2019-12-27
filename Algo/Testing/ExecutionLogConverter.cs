@@ -106,8 +106,8 @@ namespace StockSharp.Algo.Testing
 			// чтобы склонировать внутренние котировки
 			//message = (QuoteChangeMessage)message.Clone();
 			// TODO для ускорения идет shallow copy котировок
-			var newBids = message.IsSorted ? message.Bids : message.Bids.OrderByDescending(q => q.Price);
-			var newAsks = message.IsSorted ? message.Asks : message.Asks.OrderBy(q => q.Price);
+			var newBids = message.IsSorted ? (IEnumerable<QuoteChange>)message.Bids : message.Bids.OrderByDescending(q => q.Price);
+			var newAsks = message.IsSorted ? (IEnumerable<QuoteChange>)message.Asks : message.Asks.OrderBy(q => q.Price);
 
 			return ProcessQuoteChange(message.LocalTime, message.ServerTime, newBids.ToArray(), newAsks.ToArray());
 		}
@@ -463,8 +463,8 @@ namespace StockSharp.Algo.Testing
 					SecurityId = message.SecurityId,
 					LocalTime = message.LocalTime,
 					ServerTime = message.ServerTime,
-					Bids = _prevBidPrice == null ? Enumerable.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Buy, _prevBidPrice.Value, _prevBidVolume ?? 0) },
-					Asks = _prevAskPrice == null ? Enumerable.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Sell, _prevAskPrice.Value, _prevAskVolume ?? 0) },
+					Bids = _prevBidPrice == null ? ArrayHelper.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Buy, _prevBidPrice.Value, _prevBidVolume ?? 0) },
+					Asks = _prevAskPrice == null ? ArrayHelper.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Sell, _prevAskPrice.Value, _prevAskVolume ?? 0) },
 				};
 			}
 		}
@@ -570,7 +570,7 @@ namespace StockSharp.Algo.Testing
 				OrderPrice = price,
 				OrderVolume = volume,
 				ExecutionType = ExecutionTypes.OrderLog,
-				IsCancelled = isCancelling,
+				IsCancellation = isCancelling,
 				SecurityId = SecurityId,
 				LocalTime = localTime,
 				ServerTime = serverTime,
@@ -643,9 +643,9 @@ namespace StockSharp.Algo.Testing
 						SecurityId = replaceMsg.SecurityId,
 						ExecutionType = ExecutionTypes.Transaction,
 						HasOrderInfo = true,
-						IsCancelled = true,
+						IsCancellation = true,
 						OrderId = replaceMsg.OldOrderId,
-						OriginalTransactionId = replaceMsg.OldTransactionId,
+						OriginalTransactionId = replaceMsg.OriginalTransactionId,
 						TransactionId = replaceMsg.TransactionId,
 						PortfolioName = replaceMsg.PortfolioName,
 						OrderType = replaceMsg.OrderType,
@@ -679,10 +679,10 @@ namespace StockSharp.Algo.Testing
 					{
 						ExecutionType = ExecutionTypes.Transaction,
 						HasOrderInfo = true,
-						IsCancelled = true,
+						IsCancellation = true,
 						OrderId = cancelMsg.OrderId,
 						TransactionId = cancelMsg.TransactionId,
-						OriginalTransactionId = cancelMsg.OrderTransactionId,
+						OriginalTransactionId = cancelMsg.OriginalTransactionId,
 						PortfolioName = cancelMsg.PortfolioName,
 						SecurityId = cancelMsg.SecurityId,
 						LocalTime = cancelMsg.LocalTime,

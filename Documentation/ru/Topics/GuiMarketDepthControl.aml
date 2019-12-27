@@ -35,7 +35,7 @@
 		</list>
 		
 	  <para>
-Ниже показаны фрагменты кода с его использованием. Пример кода взят из <legacyItalic>Samples/BarChart/SampleBarChart</legacyItalic>.
+Ниже показаны фрагменты кода с его использованием. Пример кода взят из <legacyItalic>Samples/Common/SampleConnection</legacyItalic>.
       </para>
       
 
@@ -53,7 +53,7 @@
               </code>
               <code title="C#" language="C#">
               		<![CDATA[
-private void TraderOnMarketDepthsChanged(IEnumerable<MarketDepth> depths)
+private void ConnectorOnMarketDepthsChanged(IEnumerable<MarketDepth> depths)
 {
 	foreach (var depth in depths)
 	{

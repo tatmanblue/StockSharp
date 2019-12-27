@@ -9,6 +9,7 @@
 
 	using StockSharp.Algo.Storages;
 	using StockSharp.Localization;
+	using StockSharp.Logging;
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -23,9 +24,8 @@
 			public ProcessSuspendedSecurityMessage(IMessageAdapter adapter, SecurityId securityId)
 				: base(ExtendedMessageTypes.ProcessSuspendedSecurityMessages)
 			{
-				Adapter = adapter;
+				this.LoopBack(adapter);
 				SecurityId = securityId;
-				IsBack = true;
 			}
 
 			public override Message Clone()
@@ -37,6 +37,7 @@
 		private readonly PairSet<object, SecurityId> _securityIds = new PairSet<object, SecurityId>();
 		private readonly Dictionary<SecurityId, List<Message>> _suspendedInMessages = new Dictionary<SecurityId, List<Message>>();
 		private readonly Dictionary<SecurityId, RefPair<List<Message>, Dictionary<MessageTypes, Message>>> _suspendedOutMessages = new Dictionary<SecurityId, RefPair<List<Message>, Dictionary<MessageTypes, Message>>>();
+		private readonly HashSet<long> _skipTransactions = new HashSet<long>();
 		private readonly SyncObject _syncRoot = new SyncObject();
 
 		/// <summary>
@@ -63,18 +64,9 @@
 			base.Dispose();
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (message.IsBack)
-			{
-				base.OnInnerAdapterNewOutMessage(message);
-				return;
-			}
-
 			switch (message.Type)
 			{
 				case MessageTypes.Connect:
@@ -103,6 +95,7 @@
 						_securityIds.Clear();
 						_suspendedOutMessages.Clear();
 						_suspendedInMessages.Clear();
+						_skipTransactions.Clear();
 					}
 
 					base.OnInnerAdapterNewOutMessage(message);
@@ -120,9 +113,6 @@
 
 					if (securityCode.IsEmpty())
 						throw new InvalidOperationException();
-
-					if (securityId.SecurityType == null)
-						securityId.SecurityType = secMsg.SecurityType;
 
 					// external code shouldn't receive native ids
 					securityId.Native = null;
@@ -173,7 +163,7 @@
 				{
 					var positionMsg = (PositionChangeMessage)message;
 
-					ProcessMessage(positionMsg.SecurityId, positionMsg, true, (prev, curr) =>
+					ProcessMessage(positionMsg.SecurityId, positionMsg, positionMsg.OriginalTransactionId, true, (prev, curr) =>
 					{
 						foreach (var pair in prev.Changes)
 						{
@@ -188,7 +178,7 @@
 				case MessageTypes.Execution:
 				{
 					var execMsg = (ExecutionMessage)message;
-					ProcessMessage(execMsg.SecurityId, execMsg, execMsg.ExecutionType == ExecutionTypes.Tick && execMsg.OriginalTransactionId == 0, null);
+					ProcessMessage(execMsg.SecurityId, execMsg, execMsg.OriginalTransactionId, execMsg.ExecutionType == ExecutionTypes.Tick && execMsg.OriginalTransactionId == 0, null);
 					break;
 				}
 
@@ -196,7 +186,7 @@
 				{
 					var level1Msg = (Level1ChangeMessage)message;
 
-					ProcessMessage(level1Msg.SecurityId, level1Msg, true, (prev, curr) =>
+					ProcessMessage(level1Msg.SecurityId, level1Msg, 0, true, (prev, curr) =>
 					{
 						foreach (var pair in prev.Changes)
 						{
@@ -211,7 +201,7 @@
 				case MessageTypes.QuoteChange:
 				{
 					var quoteChangeMsg = (QuoteChangeMessage)message;
-					ProcessMessage(quoteChangeMsg.SecurityId, quoteChangeMsg, true, (prev, curr) => curr);
+					ProcessMessage(quoteChangeMsg.SecurityId, quoteChangeMsg, 0, true, (prev, curr) => curr);
 					break;
 				}
 
@@ -223,7 +213,7 @@
 				case MessageTypes.CandleVolume:
 				{
 					var candleMsg = (CandleMessage)message;
-					ProcessMessage(candleMsg.SecurityId, candleMsg, candleMsg.OriginalTransactionId == 0, null);
+					ProcessMessage(candleMsg.SecurityId, candleMsg, candleMsg.OriginalTransactionId, candleMsg.OriginalTransactionId == 0, null);
 					break;
 				}
 
@@ -232,7 +222,7 @@
 					var newsMsg = (NewsMessage)message;
 
 					if (newsMsg.SecurityId != null)
-						ProcessMessage(newsMsg.SecurityId.Value, newsMsg, true, null);
+						ProcessMessage(newsMsg.SecurityId.Value, newsMsg, newsMsg.OriginalTransactionId, true, null);
 					else
 						base.OnInnerAdapterNewOutMessage(message);
 
@@ -245,11 +235,8 @@
 			}
 		}
 
-		/// <summary>
-		/// Send message.
-		/// </summary>
-		/// <param name="message">Message.</param>
-		public override void SendInMessage(Message message)
+		/// <inheritdoc />
+		protected override void OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -269,7 +256,17 @@
 					var native = GetNativeId(secMsg, securityId);
 
 					if (native == null)
+					{
+						if (securityId.Native != null)
+						{
+							lock (_syncRoot)
+								_skipTransactions.Add(((ITransactionIdMessage)secMsg).TransactionId);
+							
+							break;
+						}
+
 						return;
+					}
 
 					securityId.Native = native;
 					message.ReplaceSecurityId(securityId);
@@ -283,6 +280,9 @@
 
 					var securityId1 = pairMsg.Message1.SecurityId;
 					var securityId2 = pairMsg.Message2.SecurityId;
+
+					if (securityId1.Native != null && securityId2.Native != null)
+						break;
 
 					var nativeId1 = GetNativeId(pairMsg, securityId1);
 
@@ -307,7 +307,7 @@
 					break;
 			}
 
-			base.SendInMessage(message);
+			base.OnSendInMessage(message);
 		}
 
 		private object GetNativeId(Message message, SecurityId securityId)
@@ -322,9 +322,13 @@
 				if (native != null)
 					return native;
 
-				_suspendedInMessages.SafeAdd(securityId).Add(message.Clone());
-				return null;
+				var clone = message.Clone();
+				clone.LoopBack(this);
+				_suspendedInMessages.SafeAdd(securityId).Add(clone);
 			}
+
+			this.AddInfoLog("Suspended {0}.", message);
+			return null;
 		}
 
 		/// <summary>
@@ -333,12 +337,23 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new SecurityNativeIdMessageAdapter(InnerAdapter, Storage);
+			return new SecurityNativeIdMessageAdapter((IMessageAdapter)InnerAdapter.Clone(), Storage);
 		}
 
-		private void ProcessMessage<TMessage>(SecurityId securityId, TMessage message, bool throwIfSecIdEmpty, Func<TMessage, TMessage, TMessage> processSuspend)
+		private void ProcessMessage<TMessage>(SecurityId securityId, TMessage message, long originTransId, bool throwIfSecIdEmpty, Func<TMessage, TMessage, TMessage> processSuspend)
 			where TMessage : Message
 		{
+			bool skip;
+
+			lock (_syncRoot)
+				skip = _skipTransactions.Contains(originTransId);
+
+			if (skip)
+			{
+				base.OnInnerAdapterNewOutMessage(message);
+				return;
+			}
+
 			var native = securityId.Native;
 
 			if (native != null)
@@ -402,8 +417,8 @@
 							if (!id.SecurityCode.CompareIgnoreCase(securityCode))
 								continue;
 
-							if (securityId.SecurityType != null && securityId.SecurityType != id.SecurityType)
-								continue;
+							//if (securityId.SecurityType != null && securityId.SecurityType != id.SecurityType)
+							//	continue;
 
 							foundId = id;
 						}
@@ -473,8 +488,8 @@
 				var pair = _suspendedOutMessages
 					.FirstOrDefault(p =>
 						p.Key.SecurityCode.CompareIgnoreCase(securityId.SecurityCode) &&
-						p.Key.BoardCode.IsEmpty() &&
-						(securityId.SecurityType == null || p.Key.SecurityType == securityId.SecurityType));
+						p.Key.BoardCode.IsEmpty() /*&&
+						(securityId.SecurityType == null || p.Key.SecurityType == securityId.SecurityType)*/);
 
 				var value = pair.Value;
 

@@ -11,11 +11,52 @@ namespace StockSharp.Algo.Strategies.Messages
 	using StockSharp.Messages;
 
 	/// <summary>
+	/// Strategy commands.
+	/// </summary>
+	public enum StrategyCommands
+	{
+		/// <summary>
+		/// Request current state.
+		/// </summary>
+		RequestState,
+
+		/// <summary>
+		/// Cancel orders.
+		/// </summary>
+		CancelOrders,
+
+		/// <summary>
+		/// Register new order.
+		/// </summary>
+		RegisterOrder,
+
+		/// <summary>
+		/// Cancel order.
+		/// </summary>
+		CancelOrder,
+		
+		/// <summary>
+		/// Close position.
+		/// </summary>
+		ClosePosition,
+
+		/// <summary>
+		/// Start.
+		/// </summary>
+		Start,
+
+		/// <summary>
+		/// Stop.
+		/// </summary>
+		Stop,
+	}
+
+	/// <summary>
 	/// The message contains information about strategy state or command to change state.
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class StrategyStateMessage : Message
+	public class StrategyStateMessage : BaseResultMessage<StrategyStateMessage>, ITransactionIdMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="StrategyStateMessage"/>.
@@ -35,31 +76,19 @@ namespace StockSharp.Algo.Strategies.Messages
 		/// Strategy type ID.
 		/// </summary>
 		[DataMember]
-		public Guid StrategyTypeId { get; set; }
+		public string StrategyTypeId { get; set; }
 
 		/// <summary>
 		/// Command.
 		/// </summary>
 		[DataMember]
-		public string Command { get; set; }
-
-		/// <summary>
-		/// Error.
-		/// </summary>
-		[DataMember]
-		public Exception Error { get; set; }
+		public StrategyCommands? Command { get; set; }
 
 		/// <summary>
 		/// Transaction ID.
 		/// </summary>
 		[DataMember]
 		public long TransactionId { get; set; }
-
-		/// <summary>
-		/// ID of the original message <see cref="TransactionId"/> for which this message is a response.
-		/// </summary>
-		[DataMember]
-		public long OriginalTransactionId { get; set; }
 
 		/// <summary>
 		/// Statistics.
@@ -75,10 +104,10 @@ namespace StockSharp.Algo.Strategies.Messages
 			if (!StrategyId.IsDefault())
 				str += $",Id={StrategyId}";
 
-			if (!StrategyTypeId.IsDefault())
+			if (!StrategyTypeId.IsEmpty())
 				str += $",TypeId={StrategyTypeId}";
 
-			if (!Command.IsEmpty())
+			if (Command != null)
 				str += $",Command={Command}";
 
 			if (Error != null)
@@ -87,33 +116,16 @@ namespace StockSharp.Algo.Strategies.Messages
 			return str;
 		}
 
-		/// <summary>
-		/// Create a copy of <see cref="StrategyStateMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
+		/// <inheritdoc />
+		protected override void CopyTo(StrategyStateMessage destination)
 		{
-			return CopyTo(new StrategyStateMessage());
-		}
+			base.CopyTo(destination);
 
-		/// <summary>
-		/// Copy the message into the <paramref name="destination" />.
-		/// </summary>
-		/// <param name="destination">The object, to which copied information.</param>
-		/// <returns>The object, to which copied information.</returns>
-		protected StrategyStateMessage CopyTo(StrategyStateMessage destination)
-		{
 			destination.TransactionId = TransactionId;
-			destination.OriginalTransactionId = OriginalTransactionId;
 			destination.StrategyId = StrategyId;
 			destination.StrategyTypeId = StrategyTypeId;
 			destination.Statistics = Statistics.ToDictionary();
 			destination.Command = Command;
-			destination.Error = Error;
-
-			this.CopyExtensionInfo(destination);
-
-			return destination;
 		}
 	}
 }

@@ -50,9 +50,7 @@ namespace StockSharp.Messages
 			InnerAdapter = innerAdapter ?? throw new ArgumentNullException(nameof(innerAdapter));
 		}
 
-		/// <summary>
-		/// Underlying adapter.
-		/// </summary>
+		/// <inheritdoc />
 		public IMessageAdapter InnerAdapter
 		{
 			get => _innerAdapter;
@@ -61,15 +59,15 @@ namespace StockSharp.Messages
 				if (_innerAdapter == value)
 					return;
 
-				if(_innerAdapter != null)
-					_innerAdapter.NewOutMessage -= OnInnerAdapterNewOutMessage;
+				if (_innerAdapter != null)
+					_innerAdapter.NewOutMessage -= InnerAdapterNewOutMessage;
 
 				_innerAdapter = value;
 
 				if (_innerAdapter == null)
 					throw new ArgumentException();
 
-				_innerAdapter.NewOutMessage += OnInnerAdapterNewOutMessage;
+				_innerAdapter.NewOutMessage += InnerAdapterNewOutMessage;
 			}
 		}
 
@@ -77,6 +75,18 @@ namespace StockSharp.Messages
 		/// Control <see cref="InnerAdapter"/> lifetime.
 		/// </summary>
 		public bool OwnInnerAdapter { get; set; }
+
+		/// <summary>
+		/// Process <see cref="InnerAdapter"/> output message.
+		/// </summary>
+		/// <param name="message">The message.</param>
+		protected virtual void InnerAdapterNewOutMessage(Message message)
+		{
+			if (message.IsBack)
+				RaiseNewOutMessage(message);
+			else
+				OnInnerAdapterNewOutMessage(message);
+		}
 
 		/// <summary>
 		/// Process <see cref="InnerAdapter"/> output message.
@@ -108,18 +118,60 @@ namespace StockSharp.Messages
 			InnerAdapter.Close();
 		}
 
+		event Action IMessageChannel.StateChanged
+		{
+			add => InnerAdapter.StateChanged += value;
+			remove => InnerAdapter.StateChanged -= value;
+		}
+
+		/// <summary>
+		/// Auto send <see cref="Message.IsBack"/> messages to <see cref="InnerAdapter"/>.
+		/// </summary>
+		protected virtual bool SendInBackFurther => true;
+
+		/// <inheritdoc />
+		public virtual void SendInMessage(Message message)
+		{
+			if (message.IsBack)
+			{
+				if (message.Adapter == this)
+				{
+					message.UndoBack();
+				}
+				else
+				{
+					if (SendInBackFurther)
+					{
+						InnerAdapter.SendInMessage(message);
+						return;
+					}
+				}
+			}
+
+			try
+			{
+				OnSendInMessage(message);
+			}
+			catch (Exception ex)
+			{
+				this.AddErrorLog(ex);
+
+				message.HandleErrorResponse(ex, CurrentTime, RaiseNewOutMessage);
+
+				throw;
+			}
+		}
+
 		/// <summary>
 		/// Send message.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		public virtual void SendInMessage(Message message)
+		protected virtual void OnSendInMessage(Message message)
 		{
 			InnerAdapter.SendInMessage(message);
 		}
 
-		/// <summary>
-		/// New message event.
-		/// </summary>
+		/// <inheritdoc />
 		public virtual event Action<Message> NewOutMessage;
 
 		/// <summary>
@@ -142,7 +194,11 @@ namespace StockSharp.Messages
 
 		Guid ILogSource.Id => InnerAdapter.Id;
 
-		string ILogSource.Name => InnerAdapter.Name;
+		string ILogSource.Name
+		{
+			get => InnerAdapter.Name;
+			set => InnerAdapter.Name = value;
+		}
 
 		/// <inheritdoc />
 		public virtual ILogSource Parent
@@ -174,11 +230,7 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		public bool CheckTimeFrameByRequest
-		{
-			get => InnerAdapter.CheckTimeFrameByRequest;
-			set => InnerAdapter.CheckTimeFrameByRequest = value;
-		}
+		public bool CheckTimeFrameByRequest => InnerAdapter.CheckTimeFrameByRequest;
 
 		/// <inheritdoc />
 		public ReConnectionSettings ReConnectionSettings => InnerAdapter.ReConnectionSettings;
@@ -187,14 +239,28 @@ namespace StockSharp.Messages
 		public IdGenerator TransactionIdGenerator => InnerAdapter.TransactionIdGenerator;
 
 		/// <inheritdoc />
-		public virtual MessageTypes[] SupportedMessages
+		public virtual IEnumerable<MessageTypeInfo> PossibleSupportedMessages
 		{
-			get => InnerAdapter.SupportedMessages;
-			set => InnerAdapter.SupportedMessages = value;
+			get => InnerAdapter.PossibleSupportedMessages;
+			set => InnerAdapter.PossibleSupportedMessages = value;
 		}
 
 		/// <inheritdoc />
-		public virtual MarketDataTypes[] SupportedMarketDataTypes
+		public virtual IEnumerable<MessageTypes> SupportedInMessages
+		{
+			get => InnerAdapter.SupportedInMessages;
+			set => InnerAdapter.SupportedInMessages = value;
+		}
+
+		/// <inheritdoc />
+		public virtual IEnumerable<MessageTypes> SupportedOutMessages
+		{
+			get => InnerAdapter.SupportedOutMessages;
+			set => InnerAdapter.SupportedOutMessages = value;
+		}
+
+		/// <inheritdoc />
+		public virtual IEnumerable<MarketDataTypes> SupportedMarketDataTypes
 		{
 			get => InnerAdapter.SupportedMarketDataTypes;
 			set => InnerAdapter.SupportedMarketDataTypes = value;
@@ -208,18 +274,6 @@ namespace StockSharp.Messages
 			get => InnerAdapter.HeartbeatInterval;
 			set => InnerAdapter.HeartbeatInterval = value;
 		}
-
-		/// <inheritdoc />
-		public virtual bool PortfolioLookupRequired => InnerAdapter.PortfolioLookupRequired;
-
-		/// <inheritdoc />
-		public virtual bool SecurityLookupRequired => InnerAdapter.SecurityLookupRequired;
-
-		/// <inheritdoc />
-		public virtual bool OrderStatusRequired => InnerAdapter.OrderStatusRequired;
-
-		/// <inheritdoc />
-		public virtual IEnumerable<TimeSpan> TimeFrames => InnerAdapter.TimeFrames;
 
 		/// <inheritdoc />
 		public string StorageName => InnerAdapter.StorageName;
@@ -237,12 +291,6 @@ namespace StockSharp.Messages
 		public virtual bool IsSupportSubscriptions => InnerAdapter.IsSupportSubscriptions;
 
 		/// <inheritdoc />
-		public virtual bool IsSupportSubscriptionBySecurity => InnerAdapter.IsSupportSubscriptionBySecurity;
-
-		/// <inheritdoc />
-		public virtual bool IsSupportSubscriptionByPortfolio => InnerAdapter.IsSupportSubscriptionByPortfolio;
-
-		/// <inheritdoc />
 		public virtual bool IsSupportCandlesUpdates => InnerAdapter.IsSupportCandlesUpdates;
 
 		/// <inheritdoc />
@@ -251,41 +299,50 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public virtual OrderCancelVolumeRequireTypes? OrderCancelVolumeRequired => InnerAdapter.OrderCancelVolumeRequired;
 
-		/// <inheritdoc />
-		public string AssociatedBoardCode => InnerAdapter.AssociatedBoardCode;
-
-		Tuple<string, Type>[] IMessageAdapter.SecurityExtendedFields => InnerAdapter.SecurityExtendedFields;
+		IEnumerable<Tuple<string, Type>> IMessageAdapter.SecurityExtendedFields => InnerAdapter.SecurityExtendedFields;
 
 		/// <inheritdoc />
-		public virtual bool IsSupportSecuritiesLookupAll => InnerAdapter.IsSupportSecuritiesLookupAll;
+		public virtual IEnumerable<int> SupportedOrderBookDepths => InnerAdapter.SupportedOrderBookDepths;
 
-		OrderCondition IMessageAdapter.CreateOrderCondition()
-		{
-			return InnerAdapter.CreateOrderCondition();
-		}
+		/// <inheritdoc />
+		public virtual bool IsSupportOrderBookIncrements => InnerAdapter.IsSupportOrderBookIncrements;
 
-		bool IMessageAdapter.IsConnectionAlive()
-		{
-			return InnerAdapter.IsConnectionAlive();
-		}
+		/// <inheritdoc />
+		public virtual bool IsSupportExecutionsPnL => InnerAdapter.IsSupportExecutionsPnL;
+
+		/// <inheritdoc />
+		public virtual bool IsSecurityNewsOnly => InnerAdapter.IsSecurityNewsOnly;
+
+		/// <inheritdoc />
+		public IEnumerable<Level1Fields> CandlesBuildFrom => InnerAdapter.CandlesBuildFrom;
+
+		Type IMessageAdapter.OrderConditionType => InnerAdapter.OrderConditionType;
+
+		bool IMessageAdapter.HeartbeatBeforConnect => InnerAdapter.HeartbeatBeforConnect;
 
 		IOrderLogMarketDepthBuilder IMessageAdapter.CreateOrderLogMarketDepthBuilder(SecurityId securityId)
-		{
-			return InnerAdapter.CreateOrderLogMarketDepthBuilder(securityId);
-		}
+			=> InnerAdapter.CreateOrderLogMarketDepthBuilder(securityId);
 
 		/// <inheritdoc />
-		public virtual IEnumerable<TimeSpan> GetTimeFrames(SecurityId securityId)
-		{
-			return InnerAdapter.GetTimeFrames(securityId);
-		}
+		public virtual IEnumerable<object> GetCandleArgs(Type candleType, SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to)
+			=> InnerAdapter.GetCandleArgs(candleType, securityId, from, to);
 
-		/// <summary>
-		/// Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources.
-		/// </summary>
+		/// <inheritdoc />
+		public virtual TimeSpan GetHistoryStepSize(DataType dataType, out TimeSpan iterationInterval)
+			=> InnerAdapter.GetHistoryStepSize(dataType, out iterationInterval);
+
+		/// <inheritdoc />
+		public virtual bool IsAllDownloadingSupported(DataType dataType)
+			=> InnerAdapter.IsAllDownloadingSupported(dataType);
+
+		/// <inheritdoc />
+		public virtual bool IsSecurityRequired(DataType dataType)
+			=> InnerAdapter.IsSecurityRequired(dataType);
+
+		/// <inheritdoc />
 		public virtual void Dispose()
 		{
-			InnerAdapter.NewOutMessage -= OnInnerAdapterNewOutMessage;
+			InnerAdapter.NewOutMessage -= InnerAdapterNewOutMessage;
 
 			if (OwnInnerAdapter)
 				InnerAdapter.Dispose();
@@ -293,11 +350,5 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		public override string ToString() => InnerAdapter.ToString();
-
-		bool IMessageAdapterExtension.IsSupportStopLoss => InnerAdapter.IsSupportStopLoss;
-
-		bool IMessageAdapterExtension.IsSupportTakeProfit => InnerAdapter.IsSupportTakeProfit;
-
-		bool IMessageAdapterExtension.IsSupportWithdraw => InnerAdapter.IsSupportWithdraw;
 	}
 }

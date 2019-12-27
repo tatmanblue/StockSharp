@@ -56,16 +56,10 @@ namespace StockSharp.Algo.Indicators
 		[CategoryLoc(LocalizedStrings.GeneralKey)]
 		public SimpleMovingAverage LongSma { get; }
 
-		/// <summary>
-		/// Whether the indicator is set.
-		/// </summary>
+		/// <inheritdoc />
 		public override bool IsFormed => LongSma.IsFormed;
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var shortValue = ShortSma.Process(input).GetValue<decimal>();
@@ -74,28 +68,22 @@ namespace StockSharp.Algo.Indicators
 			return new DecimalIndicatorValue(this, Math.Abs(100m * (shortValue - longValue) / longValue));
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
-			ShortSma.LoadNotNull(settings, nameof(ShortSma));
-			LongSma.LoadNotNull(settings, nameof(LongSma));
+			ShortSma.LoadNotNull(storage, nameof(ShortSma));
+			LongSma.LoadNotNull(storage, nameof(LongSma));
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
-			settings.SetValue(nameof(ShortSma), ShortSma.Save());
-			settings.SetValue(nameof(LongSma), LongSma.Save());
+			storage.SetValue(nameof(ShortSma), ShortSma.Save());
+			storage.SetValue(nameof(LongSma), LongSma.Save());
 		}
 	}
 }

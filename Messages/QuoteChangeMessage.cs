@@ -16,32 +16,61 @@ Copyright 2010 by StockSharp, LLC
 namespace StockSharp.Messages
 {
 	using System;
-	using System.Collections.Generic;
 	using System.ComponentModel;
 	using System.Linq;
 	using System.Runtime.Serialization;
 
-	using Ecng.Serialization;
+	using Ecng.Common;
 
 	using StockSharp.Localization;
+
+	/// <summary>
+	/// Order book states.
+	/// </summary>
+	[DataContract]
+	[Serializable]
+	public enum QuoteChangeStates
+	{
+		/// <summary>
+		/// Snapshot started.
+		/// </summary>
+		[EnumMember]
+		SnapshotStarted,
+
+		/// <summary>
+		/// Snapshot building.
+		/// </summary>
+		[EnumMember]
+		SnapshotBuilding,
+
+		/// <summary>
+		/// Snapshot complete.
+		/// </summary>
+		[EnumMember]
+		SnapshotComplete,
+
+		/// <summary>
+		/// Incremental.
+		/// </summary>
+		[EnumMember]
+		Increment,
+	}
 
 	/// <summary>
 	/// Messages containing quotes.
 	/// </summary>
 	[System.Runtime.Serialization.DataContract]
 	[Serializable]
-	public sealed class QuoteChangeMessage : Message
+	public sealed class QuoteChangeMessage : BaseSubscriptionIdMessage, IServerTimeMessage, ISecurityIdMessage
 	{
-		/// <summary>
-		/// Security ID.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.SecurityIdKey)]
 		[DescriptionLoc(LocalizedStrings.SecurityIdKey, true)]
 		[MainCategory]
 		public SecurityId SecurityId { get; set; }
 
-		private IEnumerable<QuoteChange> _bids = Enumerable.Empty<QuoteChange>();
+		private QuoteChange[] _bids = ArrayHelper.Empty<QuoteChange>();
 
 		/// <summary>
 		/// Quotes to buy.
@@ -50,13 +79,13 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.Str281Key)]
 		[DescriptionLoc(LocalizedStrings.Str282Key)]
 		[MainCategory]
-		public IEnumerable<QuoteChange> Bids
+		public QuoteChange[] Bids
 		{
 			get => _bids;
 			set => _bids = value ?? throw new ArgumentNullException(nameof(value));
 		}
 
-		private IEnumerable<QuoteChange> _asks = Enumerable.Empty<QuoteChange>();
+		private QuoteChange[] _asks = ArrayHelper.Empty<QuoteChange>();
 
 		/// <summary>
 		/// Quotes to sell.
@@ -65,15 +94,13 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.Str283Key)]
 		[DescriptionLoc(LocalizedStrings.Str284Key)]
 		[MainCategory]
-		public IEnumerable<QuoteChange> Asks
+		public QuoteChange[] Asks
 		{
 			get => _asks;
 			set => _asks = value ?? throw new ArgumentNullException(nameof(value));
 		}
 
-		/// <summary>
-		/// Change server time.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.ServerTimeKey)]
 		[DescriptionLoc(LocalizedStrings.Str168Key)]
@@ -108,8 +135,14 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.CurrencyKey)]
 		[DescriptionLoc(LocalizedStrings.Str382Key)]
 		[MainCategory]
-		[Nullable]
+		[Ecng.Serialization.Nullable]
 		public CurrencyTypes? Currency { get; set; }
+
+		/// <summary>
+		/// Order book state.
+		/// </summary>
+		[DataMember]
+		public QuoteChangeStates? State { get; set; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="QuoteChangeMessage"/>.
@@ -127,7 +160,6 @@ namespace StockSharp.Messages
 		{
 			var clone = new QuoteChangeMessage
 			{
-				LocalTime = LocalTime,
 				SecurityId = SecurityId,
 				Bids = Bids.Select(q => q.Clone()).ToArray(),
 				Asks = Asks.Select(q => q.Clone()).ToArray(),
@@ -136,17 +168,15 @@ namespace StockSharp.Messages
 				Currency = Currency,
 				IsByLevel1 = IsByLevel1,
 				IsFiltered = IsFiltered,
+				State = State,
 			};
 
-			this.CopyExtensionInfo(clone);
+			CopyTo(clone);
 
 			return clone;
 		}
 
-		/// <summary>
-		/// Returns a string that represents the current object.
-		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <inheritdoc />
 		public override string ToString()
 		{
 			return base.ToString() + $",T(S)={ServerTime:yyyy/MM/dd HH:mm:ss.fff}";

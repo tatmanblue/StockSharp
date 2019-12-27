@@ -192,7 +192,12 @@ namespace StockSharp.Algo.Storages
 						dataType = DataType.Create(typeof(TimeFrameCandleMessage), message.Arg);
 				}
 				else
+				{
 					dataType = CreateDataType(message);
+
+					if (dataType == null)
+						return;
+				}
 
 				var subscription = Tuple.Create(message.SecurityId, dataType);
 
@@ -227,7 +232,8 @@ namespace StockSharp.Algo.Storages
 		/// <param name="dataType">Data type info.</param>
 		public void Subscribe(SecurityId securityId, DataType dataType)
 		{
-			Subscribe(Tuple.Create(securityId, dataType));
+			lock (_subscriptionsLock)
+				Subscribe(Tuple.Create(securityId, dataType));
 		}
 
 		private void Subscribe(Tuple<SecurityId, DataType> subscription)
@@ -254,23 +260,15 @@ namespace StockSharp.Algo.Storages
 				case MarketDataTypes.News:
 					return DataType.News;
 
-				case MarketDataTypes.CandleTick:
-					return DataType.Create(typeof(TickCandleMessage), msg.Arg);
-
-				case MarketDataTypes.CandleVolume:
-					return DataType.Create(typeof(VolumeCandleMessage), msg.Arg);
-
-				case MarketDataTypes.CandleRange:
-					return DataType.Create(typeof(RangeCandleMessage), msg.Arg);
-
-				case MarketDataTypes.CandlePnF:
-					return DataType.Create(typeof(PnFCandleMessage), msg.Arg);
-
-				case MarketDataTypes.CandleRenko:
-					return DataType.Create(typeof(RenkoCandleMessage), msg.Arg);
+				case MarketDataTypes.Board:
+					return DataType.Board;
 
 				default:
-					throw new ArgumentOutOfRangeException(nameof(msg), msg.DataType, LocalizedStrings.Str1219);
+					if (msg.DataType.IsCandleDataType())
+						return DataType.Create(msg.DataType.ToCandleMessage(), msg.Arg);
+
+					return null;
+					//throw new ArgumentOutOfRangeException(nameof(msg), msg.DataType, LocalizedStrings.Str1219);
 			}
 		}
 
@@ -391,11 +389,8 @@ namespace StockSharp.Algo.Storages
 			}
 		}
 
-		/// <summary>
-		/// Send message.
-		/// </summary>
-		/// <param name="message">Message.</param>
-		public override void SendInMessage(Message message)
+		/// <inheritdoc />
+		protected override void OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -452,8 +447,6 @@ namespace StockSharp.Algo.Storages
 						UserOrderId = regMsg.UserOrderId,
 						OrderState = OrderStates.Pending,
 						Condition = regMsg.Condition?.Clone(),
-						//RepoInfo = regMsg.RepoInfo?.Clone(),
-						//RpsInfo = regMsg.RpsInfo?.Clone(),
 					});
 					break;
 				case MessageTypes.OrderCancel:
@@ -472,31 +465,22 @@ namespace StockSharp.Algo.Storages
 						SecurityId = cancelMsg.SecurityId,
 						HasOrderInfo = true,
 						TransactionId = cancelMsg.TransactionId,
-						IsCancelled = true,
+						IsCancellation = true,
 						OrderId = cancelMsg.OrderId,
 						OrderStringId = cancelMsg.OrderStringId,
-						OriginalTransactionId = cancelMsg.OrderTransactionId,
+						OriginalTransactionId = cancelMsg.OriginalTransactionId,
 						OrderVolume = cancelMsg.Volume,
 						//Side = cancelMsg.Side,
 					});
 					break;
 			}
 
-			base.SendInMessage(message);
+			base.OnSendInMessage(message);
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (message.IsBack)
-			{
-				base.OnInnerAdapterNewOutMessage(message);
-				return;
-			}
-
 			switch (message.Type)
 			{
 				case MessageTypes.Level1Change:
@@ -532,7 +516,7 @@ namespace StockSharp.Algo.Storages
 							buffer = _ticksBuffer;
 							break;
 						case ExecutionTypes.Transaction:
-							
+						{
 							// some responses do not contains sec id
 							if (secId.IsDefault() && !_securityIds.TryGetValue(execMsg.OriginalTransactionId, out secId))
 							{
@@ -542,12 +526,16 @@ namespace StockSharp.Algo.Storages
 
 							buffer = _transactionsBuffer;
 							break;
+						}
 						case ExecutionTypes.OrderLog:
 							buffer = _orderLogBuffer;
 							break;
 						default:
 							throw new ArgumentOutOfRangeException(nameof(message), execType, LocalizedStrings.Str1695Params.Put(message));
 					}
+
+					if (execType == ExecutionTypes.Transaction && execMsg.TransactionId == 0)
+						break;
 
 					if (execType == ExecutionTypes.Transaction || CanStore<ExecutionMessage>(secId, execType))
 						buffer.Add(secId, (ExecutionMessage)message.Clone());
@@ -563,6 +551,9 @@ namespace StockSharp.Algo.Storages
 				{
 					var candleMsg = (CandleMessage)message;
 
+					if (candleMsg.State != CandleStates.Finished)
+						break;
+
 					if (CanStore(candleMsg.SecurityId, candleMsg.GetType(), candleMsg.Arg))
 						_candleBuffer.Add(Tuple.Create(candleMsg.SecurityId, candleMsg.GetType(), candleMsg.Arg), (CandleMessage)candleMsg.Clone());
 
@@ -570,15 +561,11 @@ namespace StockSharp.Algo.Storages
 				}
 				case MessageTypes.News:
 				{
-					if (CanStore<NewsMessage>(default(SecurityId)))
+					if (CanStore<NewsMessage>(default))
 						_newsBuffer.Add((NewsMessage)message.Clone());
 
 					break;
 				}
-				//case MessageTypes.Position:
-				//	break;
-				//case MessageTypes.Portfolio:
-				//	break;
 				case MessageTypes.PositionChange:
 				{
 					var posMsg = (PositionChangeMessage)message;
@@ -589,9 +576,6 @@ namespace StockSharp.Algo.Storages
 
 					break;
 				}
-				case MessageTypes.PortfolioChange:
-					// TODO
-					break;
 			}
 
 			base.OnInnerAdapterNewOutMessage(message);
@@ -618,12 +602,12 @@ namespace StockSharp.Algo.Storages
 		}
 
 		/// <summary>
-		/// Create a copy of <see cref="StorageMessageAdapter"/>.
+		/// Create a copy of <see cref="BufferMessageAdapter"/>.
 		/// </summary>
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new BufferMessageAdapter(InnerAdapter);
+			return new BufferMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
 		}
 	}
 }

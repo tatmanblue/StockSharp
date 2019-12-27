@@ -18,6 +18,8 @@ namespace StockSharp.BusinessEntities
 	using System;
 	using System.Collections;
 	using System.Collections.Generic;
+	using System.ComponentModel;
+	using System.ComponentModel.DataAnnotations;
 	using System.Linq;
 
 	using Ecng.Collections;
@@ -53,6 +55,7 @@ namespace StockSharp.BusinessEntities
 		/// The default value is 100. If the exceeded the maximum depth the event <see cref="MarketDepth.QuoteOutOfDepth"/> will triggered.
 		/// </remarks>
 		[DisplayNameLoc(LocalizedStrings.Str1660Key)]
+		[Browsable(false)]
 		[Obsolete]
 		public int MaxDepth
 		{
@@ -107,11 +110,23 @@ namespace StockSharp.BusinessEntities
 		/// <summary>
 		/// Last change time.
 		/// </summary>
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.ServerTimeKey,
+			Description = LocalizedStrings.Str168Key,
+			GroupName = LocalizedStrings.Str1559Key,
+			Order = 2)]
 		public DateTimeOffset LastChangeTime { get; set; }
 
 		/// <summary>
 		/// The order book local time stamp.
 		/// </summary>
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.Str203Key,
+			Description = LocalizedStrings.Str204Key,
+			GroupName = LocalizedStrings.Str1559Key,
+			Order = 3)]
 		public DateTimeOffset LocalTime { get; set; }
 
 		private Quote[] _bids;
@@ -119,8 +134,12 @@ namespace StockSharp.BusinessEntities
 		/// <summary>
 		/// Get the array of bids sorted by descending price. The first (best) bid will be the maximum price.
 		/// </summary>
-		[DisplayNameLoc(LocalizedStrings.Str281Key)]
-		[DescriptionLoc(LocalizedStrings.Str282Key)]
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.Str281Key,
+			Description = LocalizedStrings.Str282Key,
+			GroupName = LocalizedStrings.Str1559Key,
+			Order = 0)]
 		public Quote[] Bids 
 		{
 			get => _bids;
@@ -133,8 +152,12 @@ namespace StockSharp.BusinessEntities
 		/// <summary>
 		/// Get the array of asks sorted by ascending price. The first (best) ask will be the minimum price.
 		/// </summary>
-		[DisplayNameLoc(LocalizedStrings.Str283Key)]
-		[DescriptionLoc(LocalizedStrings.Str284Key)]
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.Str283Key,
+			Description = LocalizedStrings.Str284Key,
+			GroupName = LocalizedStrings.Str1559Key,
+			Order = 1)]
 		public Quote[] Asks 
 		{ 
 			get => _asks;
@@ -222,7 +245,9 @@ namespace StockSharp.BusinessEntities
 					return;
 
 				_depth = value;
+#pragma warning disable 612
 				DepthChanged?.Invoke();
+#pragma warning restore 612
 			}
 		}
 
@@ -235,13 +260,15 @@ namespace StockSharp.BusinessEntities
 #pragma warning restore 67
 
 		/// <summary>
-		/// Depth <see cref="MarketDepth.Depth"/> changed.
+		/// Depth <see cref="Depth"/> changed.
 		/// </summary>
+		[Obsolete]
 		public event Action DepthChanged;
 
 		/// <summary>
 		/// Quotes changed.
 		/// </summary>
+		[Obsolete]
 		public event Action QuotesChanged;
 
 		/// <summary>
@@ -404,7 +431,7 @@ namespace StockSharp.BusinessEntities
 		/// <remarks>
 		/// The old quotes will be removed from the book.
 		/// </remarks>
-		public MarketDepth Update(IEnumerable<Quote> quotes, DateTimeOffset lastChangeTime = default(DateTimeOffset))
+		public MarketDepth Update(IEnumerable<Quote> quotes, DateTimeOffset lastChangeTime = default)
 		{
 			if (quotes == null)
 				throw new ArgumentNullException(nameof(quotes));
@@ -434,7 +461,7 @@ namespace StockSharp.BusinessEntities
 		/// <remarks>
 		/// The old quotes will be removed from the book.
 		/// </remarks>
-		public MarketDepth Update(IEnumerable<Quote> bids, IEnumerable<Quote> asks, bool isSorted = false, DateTimeOffset lastChangeTime = default(DateTimeOffset))
+		public MarketDepth Update(IEnumerable<Quote> bids, IEnumerable<Quote> asks, bool isSorted = false, DateTimeOffset lastChangeTime = default)
 		{
 			if (bids == null)
 				throw new ArgumentNullException(nameof(bids));
@@ -515,9 +542,7 @@ namespace StockSharp.BusinessEntities
 			_asks = asks;
 
 			UpdateDepthAndTime(lastChangeTime, false);
-
-			QuotesChanged?.Invoke();
-			//RaiseQuotesChanged();
+			RaiseQuotesChanged();
 		}
 
 		/// <summary>
@@ -699,7 +724,7 @@ namespace StockSharp.BusinessEntities
 		/// </summary>
 		/// <param name="quote">The quote to remove.</param>
 		/// <param name="lastChangeTime">Order book change time.</param>
-		public void Remove(Quote quote, DateTimeOffset lastChangeTime = default(DateTimeOffset))
+		public void Remove(Quote quote, DateTimeOffset lastChangeTime = default)
 		{
 			if (quote == null)
 				throw new ArgumentNullException(nameof(quote));
@@ -713,7 +738,7 @@ namespace StockSharp.BusinessEntities
 		/// <param name="price">Remove the quote for the price.</param>
 		/// <param name="volume">The volume to be deleted. If it is not specified, then all the quote is removed.</param>
 		/// <param name="lastChangeTime">Order book change time.</param>
-		public void Remove(decimal price, decimal volume = 0, DateTimeOffset lastChangeTime = default(DateTimeOffset))
+		public void Remove(decimal price, decimal volume = 0, DateTimeOffset lastChangeTime = default)
 		{
 			var dir = GetDirection(price);
 
@@ -730,7 +755,7 @@ namespace StockSharp.BusinessEntities
 		/// <param name="price">Remove the quote for the price.</param>
 		/// <param name="volume">The volume to be deleted. If it is not specified, then all the quote is removed.</param>
 		/// <param name="lastChangeTime">Order book change time.</param>
-		public void Remove(Sides direction, decimal price, decimal volume = 0, DateTimeOffset lastChangeTime = default(DateTimeOffset))
+		public void Remove(Sides direction, decimal price, decimal volume = 0, DateTimeOffset lastChangeTime = default)
 		{
 			if (price <= 0)
 				throw new ArgumentOutOfRangeException(nameof(price), price, LocalizedStrings.Str488);
@@ -910,7 +935,7 @@ namespace StockSharp.BusinessEntities
 				throw new ArgumentOutOfRangeException(nameof(quote), quote.Volume, LocalizedStrings.Str489);
 		}
 
-		private void UpdateDepthAndTime(DateTimeOffset lastChangeTime = default(DateTimeOffset), bool depthChangedEventNeeded = true)
+		private void UpdateDepthAndTime(DateTimeOffset lastChangeTime = default, bool depthChangedEventNeeded = true)
 		{
 			if (depthChangedEventNeeded)
 			{
@@ -929,7 +954,7 @@ namespace StockSharp.BusinessEntities
 
 		private void UpdateTime(DateTimeOffset lastChangeTime)
 		{
-			if (lastChangeTime != default(DateTimeOffset))
+			if (lastChangeTime != default)
 			{
 				LastChangeTime = lastChangeTime;
 			}
@@ -937,7 +962,9 @@ namespace StockSharp.BusinessEntities
 
 		private void RaiseQuotesChanged()
 		{
+#pragma warning disable 612
 			QuotesChanged?.Invoke();
+#pragma warning restore 612
 		}
 
 		/// <summary>
@@ -960,10 +987,7 @@ namespace StockSharp.BusinessEntities
 			return clone;
 		}
 
-		/// <summary>
-		/// Returns a string that represents the current object.
-		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <inheritdoc />
 		public override string ToString()
 		{
 			return this.Select(q => q.ToString()).Join(Environment.NewLine);

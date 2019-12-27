@@ -55,7 +55,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[Serializable]
 	[DataContract]
-	public class NewsMessage : Message
+	public class NewsMessage : BaseSubscriptionIdMessage, IServerTimeMessage, INullableSecurityIdMessage
 	{
 		/// <summary>
 		/// News ID.
@@ -76,9 +76,7 @@ namespace StockSharp.Messages
 		[MainCategory]
 		public string BoardCode { get; set; }
 
-		/// <summary>
-		/// Security ID, for which news have been published.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.SecurityKey)]
 		[DescriptionLoc(LocalizedStrings.Str212Key)]
@@ -113,9 +111,7 @@ namespace StockSharp.Messages
 		[MainCategory]
 		public string Story { get; set; }
 
-		/// <summary>
-		/// Time of news arrival.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.TimeKey)]
 		[DescriptionLoc(LocalizedStrings.Str220Key)]
@@ -129,13 +125,7 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.Str221Key)]
 		[DescriptionLoc(LocalizedStrings.Str222Key)]
 		[MainCategory]
-		public Uri Url { get; set; }
-
-		/// <summary>
-		/// ID of the original message <see cref="MarketDataMessage.TransactionId"/> for which this message is a response.
-		/// </summary>
-		[DataMember]
-		public long OriginalTransactionId { get; set; }
+		public string Url { get; set; }
 
 		/// <summary>
 		/// News priority.
@@ -169,19 +159,22 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			return new NewsMessage
+			var clone = new NewsMessage
 			{
-				LocalTime = LocalTime,
-				ServerTime = ServerTime,
-				SecurityId = SecurityId,
-				BoardCode = BoardCode,
-				Headline = Headline,
 				Id = Id,
+				BoardCode = BoardCode,
+				SecurityId = SecurityId,
 				Source = Source,
+				Headline = Headline,
 				Story = Story,
+				ServerTime = ServerTime,
 				Url = Url,
 				Priority = Priority,
 			};
+
+			CopyTo(clone);
+
+			return clone;
 		}
 	}
 }

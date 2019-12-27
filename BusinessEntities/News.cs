@@ -128,8 +128,8 @@ namespace StockSharp.BusinessEntities
 		[DisplayNameLoc(LocalizedStrings.Str221Key)]
 		[DescriptionLoc(LocalizedStrings.Str222Key)]
 		[MainCategory]
-		[Url]
-		public Uri Url { get; set; }
+		//[Url]
+		public string Url { get; set; }
 
 		/// <summary>
 		/// News priority.
@@ -146,12 +146,7 @@ namespace StockSharp.BusinessEntities
 		[field: NonSerialized]
 		private IDictionary<string, object> _extensionInfo;
 
-		/// <summary>
-		/// Extended information.
-		/// </summary>
-		/// <remarks>
-		/// Required when extra information is stored in the program.
-		/// </remarks>
+		/// <inheritdoc />
 		[Ignore]
 		[XmlIgnore]
 		[DisplayNameLoc(LocalizedStrings.ExtendedInfoKey)]

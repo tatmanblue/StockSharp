@@ -1,6 +1,7 @@
 namespace StockSharp.Algo.Strategies.Messages
 {
 	using System;
+	using System.Linq;
 	using System.Runtime.Serialization;
 
 	using StockSharp.Messages;
@@ -10,7 +11,7 @@ namespace StockSharp.Algo.Strategies.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class StrategyTypeMessage : Message
+	public class StrategyTypeMessage : Message, IOriginalTransactionIdMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="StrategyTypeMessage"/>.
@@ -24,7 +25,7 @@ namespace StockSharp.Algo.Strategies.Messages
 		/// Strategy type ID.
 		/// </summary>
 		[DataMember]
-		public Guid StrategyTypeId { get; set; }
+		public string StrategyTypeId { get; set; }
 
 		/// <summary>
 		/// Strategy name.
@@ -32,16 +33,20 @@ namespace StockSharp.Algo.Strategies.Messages
 		[DataMember]
 		public string StrategyName { get; set; }
 
-		/// <summary>
-		/// ID of the original message <see cref="StrategyLookupMessage.TransactionId"/> for which this message is a response.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		public long OriginalTransactionId { get; set; }
+
+		/// <summary>
+		/// Assembly.
+		/// </summary>
+		[DataMember]
+		public byte[] Assembly { get; set; }
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Id={StrategyTypeId},Name={StrategyName}";
+			return base.ToString() + $",Id={StrategyTypeId},Name={StrategyName},Asm={Assembly?.Length}";
 		}
 
 		/// <summary>
@@ -60,11 +65,12 @@ namespace StockSharp.Algo.Strategies.Messages
 		/// <returns>The object, to which copied information.</returns>
 		protected StrategyTypeMessage CopyTo(StrategyTypeMessage destination)
 		{
+			base.CopyTo(destination);
+
 			destination.StrategyName = StrategyName;
 			destination.StrategyTypeId = StrategyTypeId;
 			destination.OriginalTransactionId = OriginalTransactionId;
-
-			this.CopyExtensionInfo(destination);
+			destination.Assembly = Assembly?.ToArray();
 
 			return destination;
 		}

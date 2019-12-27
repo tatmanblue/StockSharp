@@ -76,24 +76,13 @@ namespace StockSharp.Algo.Indicators
 
 		IEnumerable<IIndicator> IComplexIndicator.InnerIndicators => InnerIndicators;
 
-		/// <summary>
-		/// Whether the indicator is set.
-		/// </summary>
-		public override bool IsFormed
-		{
-			get { return InnerIndicators.All(i => i.IsFormed); }
-		}
+		/// <inheritdoc />
+		public override bool IsFormed => InnerIndicators.All(i => i.IsFormed);
 
-		/// <summary>
-		/// Result values type.
-		/// </summary>
+		/// <inheritdoc />
 		public override Type ResultType { get; } = typeof(ComplexIndicatorValue);
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var value = new ComplexIndicatorValue(this);
@@ -118,22 +107,17 @@ namespace StockSharp.Algo.Indicators
 			return value;
 		}
 
-		/// <summary>
-		/// To reset the indicator status to initial. The method is called each time when initial settings are changed (for example, the length of period).
-		/// </summary>
+		/// <inheritdoc />
 		public override void Reset()
 		{
 			base.Reset();
 			InnerIndicators.ForEach(i => i.Reset());
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
 			var index = 0;
 
@@ -141,24 +125,21 @@ namespace StockSharp.Algo.Indicators
 			{
 				var innerSettings = new SettingsStorage();
 				indicator.Save(innerSettings);
-				settings.SetValue(indicator.Name + index, innerSettings);
+				storage.SetValue(indicator.Name + index, innerSettings);
 				index++;
 			}
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
 			var index = 0;
 
 			foreach (var indicator in InnerIndicators)
 			{
-				indicator.Load(settings.GetValue<SettingsStorage>(indicator.Name + index));
+				indicator.Load(storage.GetValue<SettingsStorage>(indicator.Name + index));
 				index++;
 			}
 		}

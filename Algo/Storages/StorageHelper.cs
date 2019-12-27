@@ -19,13 +19,11 @@ namespace StockSharp.Algo.Storages
 	using System.Collections;
 	using System.Collections.Generic;
 	using System.Diagnostics;
-	using System.IO;
 	using System.Linq;
 
 	using Ecng.Collections;
 	using Ecng.Common;
 	using Ecng.ComponentModel;
-	using Ecng.Interop;
 
 	using MoreLinq;
 
@@ -455,139 +453,6 @@ namespace StockSharp.Algo.Storages
 		}
 
 		/// <summary>
-		/// Synchronize securities with storage.
-		/// </summary>
-		/// <param name="drives">Storage drives.</param>
-		/// <param name="securityStorage">Securities meta info storage.</param>
-		/// <param name="exchangeInfoProvider">Exchanges and trading boards provider.</param>
-		/// <param name="newSecurity">The handler through which a new instrument will be passed.</param>
-		/// <param name="updateProgress">The handler through which a progress change will be passed.</param>
-		/// <param name="logsReceiver">Logs receiver.</param>
-		/// <param name="isCancelled">The handler which returns an attribute of search cancel.</param>
-		public static void SynchronizeSecurities(this IEnumerable<IMarketDataDrive> drives,
-			ISecurityStorage securityStorage, IExchangeInfoProvider exchangeInfoProvider,
-			Action<Security> newSecurity, Action<int, int> updateProgress,
-			Func<bool> isCancelled, ILogReceiver logsReceiver)
-		{
-			if (drives == null)
-				throw new ArgumentNullException(nameof(drives));
-
-			if (securityStorage == null)
-				throw new ArgumentNullException(nameof(securityStorage));
-
-			if (exchangeInfoProvider == null)
-				throw new ArgumentNullException(nameof(exchangeInfoProvider));
-
-			if (newSecurity == null)
-				throw new ArgumentNullException(nameof(newSecurity));
-
-			if (updateProgress == null)
-				throw new ArgumentNullException(nameof(updateProgress));
-
-			if (isCancelled == null)
-				throw new ArgumentNullException(nameof(isCancelled));
-
-			if (logsReceiver == null)
-				throw new ArgumentNullException(nameof(logsReceiver));
-
-			var securityPaths = new List<string>();
-			var progress = 0;
-
-			foreach (var dir in drives.Select(drive => drive.Path).Distinct())
-			{
-				foreach (var letterDir in InteropHelper.GetDirectories(dir))
-				{
-					if (isCancelled())
-						break;
-
-					var name = Path.GetFileName(letterDir);
-
-					if (name == null || name.Length != 1)
-						continue;
-
-					securityPaths.AddRange(InteropHelper.GetDirectories(letterDir));
-				}
-
-				if (isCancelled())
-					break;
-			}
-
-			if (isCancelled())
-				return;
-
-			// кол-во проходов по директории для создания инструмента
-			var iterCount = securityPaths.Count;
-
-			updateProgress(0, iterCount);
-
-			var securities = securityStorage.LookupAll().ToDictionary(s => s.Id, s => s, StringComparer.InvariantCultureIgnoreCase);
-
-			foreach (var securityPath in securityPaths)
-			{
-				if (isCancelled())
-					break;
-
-				var securityId = Path.GetFileName(securityPath).FolderNameToSecurityId();
-
-				var isNew = false;
-
-				var security = securities.TryGetValue(securityId);
-
-				if (security == null)
-				{
-					var firstDataFile =
-						Directory.EnumerateDirectories(securityPath)
-							.SelectMany(d => Directory.EnumerateFiles(d, "*.bin")
-								.Concat(Directory.EnumerateFiles(d, "*.csv"))
-								.OrderBy(f => Path.GetExtension(f).CompareIgnoreCase(".bin") ? 0 : 1))
-							.FirstOrDefault();
-
-					if (firstDataFile != null)
-					{
-						var id = securityId.ToSecurityId();
-
-						decimal priceStep;
-
-						if (Path.GetExtension(firstDataFile).CompareIgnoreCase(".bin"))
-						{
-							try
-							{
-								priceStep = File.ReadAllBytes(firstDataFile).Range(6, 16).To<decimal>();
-							}
-							catch (Exception ex)
-							{
-								throw new InvalidOperationException(LocalizedStrings.Str2929Params.Put(firstDataFile), ex);
-							}
-						}
-						else
-							priceStep = 0.01m;
-
-						security = new Security
-						{
-							Id = securityId,
-							PriceStep = priceStep,
-							Name = id.SecurityCode,
-							Code = id.SecurityCode,
-							Board = exchangeInfoProvider.GetOrCreateBoard(id.BoardCode),
-						};
-
-						securities.Add(securityId, security);
-
-						securityStorage.Save(security, false);
-						newSecurity(security);
-
-						isNew = true;
-					}
-				}
-
-				updateProgress(progress++, iterCount);
-
-				if (isNew)
-					logsReceiver.AddInfoLog(LocalizedStrings.Str2930Params, security);
-			}
-		}
-
-		/// <summary>
 		/// Clear dates cache for storages.
 		/// </summary>
 		/// <param name="drives">Storage drives.</param>
@@ -682,19 +547,19 @@ namespace StockSharp.Algo.Storages
 			private readonly TimeSpan _timeFrame;
 			private DateTime _prevDate;
 
-			public CandleMessageBuildableStorage(IStorageRegistry registry, Security security, TimeSpan timeFrame, IMarketDataDrive drive, StorageFormats format)
+			public CandleMessageBuildableStorage(IStorageRegistry registry, SecurityId securityId, TimeSpan timeFrame, IMarketDataDrive drive, StorageFormats format)
 			{
 				if (registry == null)
 					throw new ArgumentNullException(nameof(registry));
 
-				_getStorage = tf => registry.GetCandleMessageStorage(typeof(TimeFrameCandleMessage), security, tf, drive, format);
+				_getStorage = tf => registry.GetCandleMessageStorage(typeof(TimeFrameCandleMessage), securityId, tf, drive, format);
 				_original = _getStorage(timeFrame);
 
 				_timeFrame = timeFrame;
 
 				_compressors = GetSmallerTimeFrames().ToDictionary(tf => tf, tf => new BiggerTimeFrameCandleCompressor(new MarketDataMessage
 				{
-					SecurityId = security.ToSecurityId(),
+					SecurityId = securityId,
 					DataType = MarketDataTypes.CandleTimeFrame,
 					Arg = timeFrame,
 					IsSubscribe = true,
@@ -704,8 +569,8 @@ namespace StockSharp.Algo.Storages
 			private IEnumerable<TimeSpan> GetSmallerTimeFrames()
 			{
 				return _original.Drive.Drive
-					.GetAvailableDataTypes(_original.Security.ToSecurityId(), ((IMarketDataStorage<CandleMessage>)this).Serializer.Format)
-					.TimeFrameCandles()
+					.GetAvailableDataTypes(_original.SecurityId, ((IMarketDataStorage<CandleMessage>)this).Serializer.Format)
+					.Where(t => t.MessageType == typeof(TimeFrameCandleMessage))
 					.Select(t => (TimeSpan)t.Arg)
 					.FilterSmallerTimeFrames(_timeFrame)
 					.OrderByDescending();
@@ -719,8 +584,7 @@ namespace StockSharp.Algo.Storages
 			IEnumerable<DateTime> IMarketDataStorage.Dates => GetStorages().SelectMany(s => s.Dates).OrderBy().Distinct();
 
 			Type IMarketDataStorage.DataType => typeof(TimeFrameCandleMessage);
-
-			Security IMarketDataStorage.Security => _original.Security;
+			SecurityId IMarketDataStorage.SecurityId => _original.SecurityId;
 
 			object IMarketDataStorage.Arg => _original.Arg;
 
@@ -821,14 +685,214 @@ namespace StockSharp.Algo.Storages
 		/// To get the candles storage for the specified instrument. The storage will build candles from smaller time-frames if original time-frames is not exist.
 		/// </summary>
 		/// <param name="registry">Market-data storage.</param>
-		/// <param name="security">Security.</param>
+		/// <param name="securityId">Security ID.</param>
 		/// <param name="timeFrame">Time-frame.</param>
 		/// <param name="drive">The storage. If a value is <see langword="null" />, <see cref="IStorageRegistry.DefaultDrive"/> will be used.</param>
 		/// <param name="format">The format type. By default <see cref="StorageFormats.Binary"/> is passed.</param>
 		/// <returns>The candles storage.</returns>
-		public static IMarketDataStorage<CandleMessage> GetCandleMessageBuildableStorage(this IStorageRegistry registry, Security security, TimeSpan timeFrame, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
+		public static IMarketDataStorage<CandleMessage> GetCandleMessageBuildableStorage(this IStorageRegistry registry, SecurityId securityId, TimeSpan timeFrame, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
 		{
-			return new CandleMessageBuildableStorage(registry, security, timeFrame, drive, format);
+			return new CandleMessageBuildableStorage(registry, securityId, timeFrame, drive, format);
+		}
+
+		/// <summary>
+		/// Get possible args for the specified candle type and instrument.
+		/// </summary>
+		/// <param name="drive">The storage (database, file etc.).</param>
+		/// <param name="format">Format type.</param>
+		/// <param name="candleType">The type of the message <see cref="CandleMessage"/>.</param>
+		/// <param name="securityId">Security ID.</param>
+		/// <param name="from">The initial date from which you need to get data.</param>
+		/// <param name="to">The final date by which you need to get data.</param>
+		/// <returns>Possible args.</returns>
+		public static IEnumerable<object> GetCandleArgs(this IMarketDataDrive drive, StorageFormats format, Type candleType, SecurityId securityId = default, DateTimeOffset? from = null, DateTimeOffset? to = null)
+		{
+			var dataTypes = drive.GetAvailableDataTypes(securityId, format);
+
+			var args = new HashSet<object>();
+
+			foreach (var dataType in dataTypes.Where(t => t.MessageType == candleType))
+			{
+				var arg = dataType.Arg;
+
+				if (securityId.IsDefault())
+					args.Add(arg);
+				else if (from == null && to == null)
+					args.Add(arg);
+				else
+				{
+					var dates = drive.GetStorageDrive(securityId, candleType, arg, format).Dates;
+					
+					if (from != null)
+						dates = dates.Where(d => d >= from.Value);
+
+					if (to != null)
+						dates = dates.Where(d => d <= to.Value);
+
+					if (dates.Any())
+						args.Add(arg);
+				}
+			}
+
+			return args.OrderBy().ToArray();
+		}
+
+		private class ConvertableStorage<TMessage, TEntity> : IMarketDataStorage<TEntity>, IMarketDataStorageInfo<TEntity>
+			where TMessage : Message
+		{
+			private readonly Security _security;
+			private readonly IMarketDataStorage<TMessage> _messageStorage;
+			private readonly IExchangeInfoProvider _exchangeInfoProvider;
+			private readonly Func<TEntity, TMessage> _toMessage;
+
+			public ConvertableStorage(Security security, IMarketDataStorage<TMessage> messageStorage, IExchangeInfoProvider exchangeInfoProvider, Func<TEntity, TMessage> toMessage)
+			{
+				_security = security;
+				_messageStorage = messageStorage ?? throw new ArgumentNullException(nameof(messageStorage));
+				_exchangeInfoProvider = exchangeInfoProvider ?? throw new ArgumentNullException(nameof(exchangeInfoProvider));
+				_toMessage = toMessage ?? throw new ArgumentNullException(nameof(toMessage));
+			}
+
+			IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date)
+			{
+				return _messageStorage.GetMetaInfo(date);
+			}
+
+			IMarketDataSerializer IMarketDataStorage.Serializer => _messageStorage.Serializer;
+
+			IMarketDataSerializer<TEntity> IMarketDataStorage<TEntity>.Serializer => throw new NotSupportedException();
+
+			public int Save(IEnumerable<TEntity> data)
+			{
+				return _messageStorage.Save(data.Select(_toMessage));
+			}
+
+			public void Delete(IEnumerable<TEntity> data)
+			{
+				_messageStorage.Delete(data.Select(_toMessage));
+			}
+
+			IEnumerable<DateTime> IMarketDataStorage.Dates => _messageStorage.Dates;
+
+			Type IMarketDataStorage.DataType => _messageStorage.DataType;
+
+			SecurityId IMarketDataStorage.SecurityId => _messageStorage.SecurityId;
+
+			object IMarketDataStorage.Arg => _messageStorage.Arg;
+
+			IMarketDataStorageDrive IMarketDataStorage.Drive => _messageStorage.Drive;
+
+			bool IMarketDataStorage.AppendOnlyNew
+			{
+				get => _messageStorage.AppendOnlyNew;
+				set => _messageStorage.AppendOnlyNew = value;
+			}
+
+			int IMarketDataStorage.Save(IEnumerable data)
+			{
+				return Save(data.Cast<TEntity>());
+			}
+
+			void IMarketDataStorage.Delete(IEnumerable data)
+			{
+				Delete(data.Cast<TEntity>());
+			}
+
+			void IMarketDataStorage.Delete(DateTime date)
+			{
+				_messageStorage.Delete(date);
+			}
+
+			IEnumerable IMarketDataStorage.Load(DateTime date)
+			{
+				return Load(date);
+			}
+
+			public IEnumerable<TEntity> Load(DateTime date)
+			{
+				return _messageStorage.Load(date).ToEntities<TMessage, TEntity>(_security, _exchangeInfoProvider);
+			}
+
+			public DateTimeOffset GetTime(TEntity data)
+			{
+				return ((IMarketDataStorageInfo<TMessage>)_messageStorage).GetTime(_toMessage(data));
+			}
+
+			DateTimeOffset IMarketDataStorageInfo.GetTime(object data)
+			{
+				return GetTime((TEntity)data);
+			}
+		}
+
+		private static readonly SynchronizedDictionary<IMarketDataStorage, IMarketDataStorage> _convertedStorages = new SynchronizedDictionary<IMarketDataStorage, IMarketDataStorage>();
+
+		/// <summary>
+		/// Convert message storage to entity.
+		/// </summary>
+		/// <typeparam name="TMessage">Message type.</typeparam>
+		/// <typeparam name="TEntity">Entity type.</typeparam>
+		/// <param name="storage">Message storage.</param>
+		/// <param name="security">Security.</param>
+		/// <param name="exchangeInfoProvider">Exchanges and trading boards provider.</param>
+		/// <returns>Entity storage.</returns>
+		public static IMarketDataStorage<TEntity> ToEntityStorage<TMessage, TEntity>(this IMarketDataStorage<TMessage> storage, Security security, IExchangeInfoProvider exchangeInfoProvider = null)
+			where TMessage : Message
+		{
+			Func<TEntity, TMessage> toMessage;
+
+			if (typeof(TEntity) == typeof(MarketDepth))
+			{
+				Func<MarketDepth, QuoteChangeMessage> converter = MessageConverterHelper.ToMessage;
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(Trade))
+			{
+				Func<Trade, ExecutionMessage> converter = MessageConverterHelper.ToMessage;
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(OrderLogItem))
+			{
+				Func<OrderLogItem, ExecutionMessage> converter = MessageConverterHelper.ToMessage;
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(News))
+			{
+				Func<News, NewsMessage> converter = MessageConverterHelper.ToMessage;
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(Security))
+			{
+				Func<Security, SecurityMessage> converter = s => s.ToMessage();
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(Position))
+			{
+				Func<Position, PositionChangeMessage> converter = p => p.ToChangeMessage();
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(Order))
+			{
+				Func<Order, ExecutionMessage> converter = MessageConverterHelper.ToMessage;
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(MyTrade))
+			{
+				Func<MyTrade, ExecutionMessage> converter = MessageConverterHelper.ToMessage;
+				toMessage = converter.To<Func<TEntity, TMessage>>();
+			}
+			else if (typeof(TEntity) == typeof(Candle) || typeof(TEntity).IsCandle())
+			{
+				Func<Candle, CandleMessage> converter = MessageConverterHelper.ToMessage;
+
+				if (typeof(TEntity) == typeof(Candle) && typeof(TMessage) == typeof(CandleMessage))
+					toMessage = converter.To<Func<TEntity, TMessage>>();
+				else
+					toMessage = e => converter(e.To<Candle>()).To<TMessage>();
+			}
+			else
+				throw new ArgumentOutOfRangeException(nameof(TEntity), typeof(TEntity), LocalizedStrings.Str1219);
+
+			return (IMarketDataStorage<TEntity>)_convertedStorages.SafeAdd(storage, key => new ConvertableStorage<TMessage, TEntity>(security, storage, exchangeInfoProvider ?? new InMemoryExchangeInfoProvider(), toMessage));
 		}
 	}
 }

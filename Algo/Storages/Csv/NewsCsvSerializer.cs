@@ -15,8 +15,6 @@ Copyright 2010 by StockSharp, LLC
 #endregion S# License
 namespace StockSharp.Algo.Storages.Csv
 {
-	using System;
-
 	using Ecng.Common;
 
 	using StockSharp.Messages;
@@ -35,11 +33,11 @@ namespace StockSharp.Algo.Storages.Csv
 				data.ServerTime.ToString("zzz"),
 				data.Headline,
 				data.Source,
-				data.Url?.ToString(),
+				data.Url,
 				data.Id,
 				data.BoardCode,
 				data.SecurityId?.SecurityCode,
-				data.Priority?.ToString(),
+				data.Priority?.To<string>(),
 			});
 
 			metaInfo.LastTime = data.ServerTime.UtcDateTime;
@@ -53,7 +51,7 @@ namespace StockSharp.Algo.Storages.Csv
 				ServerTime = reader.ReadTime(metaInfo.Date),
 				Headline = reader.ReadString(),
 				Source = reader.ReadString(),
-				Url = reader.ReadString().To<Uri>(),
+				Url = reader.ReadString(),
 				Id = reader.ReadString(),
 				BoardCode = reader.ReadString(),
 			};

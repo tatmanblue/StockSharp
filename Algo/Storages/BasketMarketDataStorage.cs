@@ -27,7 +27,6 @@ namespace StockSharp.Algo.Storages
 
 	using MoreLinq;
 
-	using StockSharp.BusinessEntities;
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -91,9 +90,6 @@ namespace StockSharp.Algo.Storages
 				_storage._enumerators.Add(this);
 			}
 
-			/// <summary>
-			/// The current message.
-			/// </summary>
 			public TMessage Current { get; private set; }
 
 			bool IEnumerator.MoveNext()
@@ -189,7 +185,7 @@ namespace StockSharp.Algo.Storages
 
 			private static DateTimeOffset GetServerTime(IEnumerator enumerator)
 			{
-				return BasketMarketDataStorage<TMessage>.GetServerTime((Message)enumerator.Current);
+				return ((Message)enumerator.Current).GetServerTime();
 			}
 
 			object IEnumerator.Current => Current;
@@ -369,19 +365,13 @@ namespace StockSharp.Algo.Storages
 			get { return _innerStorages.Cache.SelectMany(s => s.Dates).OrderBy().Distinct(); }
 		}
 
-		/// <summary>
-		/// The type of market-data, operated by given storage.
-		/// </summary>
+		/// <inheritdoc />
 		public virtual Type DataType => throw new NotSupportedException();
 
-		/// <summary>
-		/// The instrument, operated by the external storage.
-		/// </summary>
-		public virtual Security Security => throw new NotSupportedException();
+		/// <inheritdoc />
+		public virtual SecurityId SecurityId => throw new NotSupportedException();
 
-		/// <summary>
-		/// The additional argument, associated with data. For example, <see cref="CandleMessage.Arg"/>.
-		/// </summary>
+		/// <inheritdoc />
 		public virtual object Arg => throw new NotSupportedException();
 
 		IMarketDataStorageDrive IMarketDataStorage.Drive => throw new NotSupportedException();
@@ -392,25 +382,13 @@ namespace StockSharp.Algo.Storages
 			set => throw new NotSupportedException();
 		}
 
-		int IMarketDataStorage.Save(IEnumerable data)
-		{
-			throw new NotSupportedException();
-		}
+		int IMarketDataStorage.Save(IEnumerable data) => throw new NotSupportedException();
 
-		void IMarketDataStorage.Delete(IEnumerable data)
-		{
-			throw new NotSupportedException();
-		}
+		void IMarketDataStorage.Delete(IEnumerable data) => throw new NotSupportedException();
 
-		void IMarketDataStorage.Delete(DateTime date)
-		{
-			throw new NotSupportedException();
-		}
+		void IMarketDataStorage.Delete(DateTime date) => throw new NotSupportedException();
 
-		IEnumerable<TMessage> IMarketDataStorage<TMessage>.Load(DateTime date)
-		{
-			return OnLoad(date);
-		}
+		IEnumerable<TMessage> IMarketDataStorage<TMessage>.Load(DateTime date) => OnLoad(date);
 
 		private class BasketMarketDataSerializer : IMarketDataSerializer<TMessage>
 		{
@@ -426,55 +404,29 @@ namespace StockSharp.Algo.Storages
 			TimeSpan IMarketDataSerializer.TimePrecision => _parent.InnerStorages.First().Serializer.TimePrecision;
 
 			IMarketDataMetaInfo IMarketDataSerializer.CreateMetaInfo(DateTime date)
-			{
-				throw new NotSupportedException();
-			}
+				=> throw new NotSupportedException();
 
 			void IMarketDataSerializer.Serialize(Stream stream, IEnumerable data, IMarketDataMetaInfo metaInfo)
-			{
-				throw new NotSupportedException();
-			}
+				=> throw new NotSupportedException();
 
 			IEnumerable<TMessage> IMarketDataSerializer<TMessage>.Deserialize(Stream stream, IMarketDataMetaInfo metaInfo)
-			{
-				throw new NotSupportedException();
-			}
+				=> throw new NotSupportedException();
 
 			void IMarketDataSerializer<TMessage>.Serialize(Stream stream, IEnumerable<TMessage> data, IMarketDataMetaInfo metaInfo)
-			{
-				throw new NotSupportedException();
-			}
+				=> throw new NotSupportedException();
 
 			IEnumerable IMarketDataSerializer.Deserialize(Stream stream, IMarketDataMetaInfo metaInfo)
-			{
-				throw new NotSupportedException();
-			}
+				=> throw new NotSupportedException();
 		}
 
+		int IMarketDataStorage<TMessage>.Save(IEnumerable<TMessage> data) => throw new NotSupportedException();
+		void IMarketDataStorage<TMessage>.Delete(IEnumerable<TMessage> data) => throw new NotSupportedException();
+		IEnumerable IMarketDataStorage.Load(DateTime date) => OnLoad(date);
+
+		IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date) => throw new NotSupportedException();
+		
 		private readonly IMarketDataSerializer<TMessage> _serializer;
-
 		IMarketDataSerializer<TMessage> IMarketDataStorage<TMessage>.Serializer => _serializer;
-
-		int IMarketDataStorage<TMessage>.Save(IEnumerable<TMessage> data)
-		{
-			throw new NotSupportedException();
-		}
-
-		void IMarketDataStorage<TMessage>.Delete(IEnumerable<TMessage> data)
-		{
-			throw new NotSupportedException();
-		}
-
-		IEnumerable IMarketDataStorage.Load(DateTime date)
-		{
-			return OnLoad(date);
-		}
-
-		IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date)
-		{
-			throw new NotSupportedException();
-		}
-
 		IMarketDataSerializer IMarketDataStorage.Serializer => ((IMarketDataStorage<TMessage>)this).Serializer;
 
 		/// <summary>
@@ -492,24 +444,9 @@ namespace StockSharp.Algo.Storages
 		/// </summary>
 		/// <param name="date">Date.</param>
 		/// <returns>The messages.</returns>
-		protected virtual IEnumerable<TMessage> OnLoad(DateTime date)
-		{
-			return Load(date);
-		}
+		protected virtual IEnumerable<TMessage> OnLoad(DateTime date) => Load(date);
 
-		DateTimeOffset IMarketDataStorageInfo<TMessage>.GetTime(TMessage data)
-		{
-			return GetServerTime(data);
-		}
-
-		DateTimeOffset IMarketDataStorageInfo.GetTime(object data)
-		{
-			return GetServerTime((Message)data);
-		}
-
-		private static DateTimeOffset GetServerTime(Message message)
-		{
-			return message.GetServerTime();
-		}
+		DateTimeOffset IMarketDataStorageInfo<TMessage>.GetTime(TMessage data) => data.GetServerTime();
+		DateTimeOffset IMarketDataStorageInfo.GetTime(object data) => ((Message)data).GetServerTime();
 	}
 }

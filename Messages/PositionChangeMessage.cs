@@ -16,13 +16,11 @@ Copyright 2010 by StockSharp, LLC
 namespace StockSharp.Messages
 {
 	using System;
-	using System.ComponentModel;
 	using System.ComponentModel.DataAnnotations;
 	using System.Linq;
 	using System.Runtime.Serialization;
 
 	using Ecng.Common;
-	using Ecng.Collections;
 	using Ecng.Serialization;
 
 	using StockSharp.Localization;
@@ -66,7 +64,7 @@ namespace StockSharp.Messages
 		/// Average price.
 		/// </summary>
 		[EnumMember]
-		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.Str257Key)]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.AveragePriceKey)]
 		AveragePrice,
 
 		/// <summary>
@@ -177,25 +175,13 @@ namespace StockSharp.Messages
 	[Serializable]
 	[DisplayNameLoc(LocalizedStrings.Str862Key)]
 	[DescriptionLoc(LocalizedStrings.PositionDescKey)]
-	public sealed class PositionChangeMessage : BaseChangeMessage<PositionChangeTypes>
+	public class PositionChangeMessage : BaseChangeMessage<PositionChangeTypes>, IPortfolioNameMessage, ISecurityIdMessage
 	{
-		/// <summary>
-		/// Security ID.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
-		[DisplayNameLoc(LocalizedStrings.SecurityIdKey)]
-		[DescriptionLoc(LocalizedStrings.SecurityIdKey, true)]
+		[DisplayNameLoc(LocalizedStrings.NameKey)]
+		[DescriptionLoc(LocalizedStrings.Str247Key)]
 		[MainCategory]
-		public SecurityId SecurityId { get; set; }
-
-		/// <summary>
-		/// Portfolio name.
-		/// </summary>
-		[DataMember]
-		[DisplayNameLoc(LocalizedStrings.PortfolioKey)]
-		[DescriptionLoc(LocalizedStrings.PortfolioNameKey)]
-		[MainCategory]
-		[ReadOnly(true)]
 		public string PortfolioName { get; set; }
 
 		/// <summary>
@@ -206,6 +192,13 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.ClientCodeKey)]
 		[DescriptionLoc(LocalizedStrings.ClientCodeDescKey)]
 		public string ClientCode { get; set; }
+
+		/// <inheritdoc />
+		[DataMember]
+		[DisplayNameLoc(LocalizedStrings.SecurityIdKey)]
+		[DescriptionLoc(LocalizedStrings.SecurityIdKey, true)]
+		[MainCategory]
+		public SecurityId SecurityId { get; set; }
 
 		/// <summary>
 		/// The depositary where the physical security.
@@ -234,10 +227,13 @@ namespace StockSharp.Messages
 		public string Description { get; set; }
 
 		/// <summary>
-		/// ID of the original message <see cref="PortfolioMessage.TransactionId"/> for which this message is a response.
+		/// Electronic board code.
 		/// </summary>
 		[DataMember]
-		public long OriginalTransactionId { get; set; }
+		[DisplayNameLoc(LocalizedStrings.BoardKey)]
+		[DescriptionLoc(LocalizedStrings.BoardCodeKey, true)]
+		[MainCategory]
+		public string BoardCode { get; set; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PositionChangeMessage"/>.
@@ -247,38 +243,49 @@ namespace StockSharp.Messages
 		{
 		}
 
+		///// <summary>
+		///// Initializes a new instance of the <see cref="PositionChangeMessage"/>.
+		///// </summary>
+		///// <param name="type">Message type.</param>
+		//protected PositionChangeMessage(MessageTypes type)
+		//	: base(type)
+		//{
+		//}
+
 		/// <summary>
 		/// Create a copy of <see cref="PositionChangeMessage"/>.
 		/// </summary>
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			var msg = new PositionChangeMessage
-			{
-				LocalTime = LocalTime,
-				PortfolioName = PortfolioName,
-				SecurityId = SecurityId,
-				DepoName = DepoName,
-				ServerTime = ServerTime,
-				LimitType = LimitType,
-				Description = Description,
-				OriginalTransactionId = OriginalTransactionId,
-				ClientCode = ClientCode,
-			};
+			var clone = new PositionChangeMessage();
 
-			msg.Changes.AddRange(Changes);
-			this.CopyExtensionInfo(msg);
+			CopyTo(clone);
 
-			return msg;
+			return clone;
 		}
 
 		/// <summary>
-		/// Returns a string that represents the current object.
+		/// Copy the message into the <paramref name="destination" />.
 		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <param name="destination">The object, to which copied information.</param>
+		protected virtual void CopyTo(PositionChangeMessage destination)
+		{
+			base.CopyTo(destination);
+
+			destination.SecurityId = SecurityId;
+			destination.DepoName = DepoName;
+			destination.LimitType = LimitType;
+			destination.Description = Description;
+			destination.PortfolioName = PortfolioName;
+			destination.ClientCode = ClientCode;
+			destination.BoardCode = BoardCode;
+		}
+
+		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Sec={SecurityId},P={PortfolioName},CL={ClientCode},Changes={Changes.Select(c => c.ToString()).Join(",")}";
+			return base.ToString() + $",Sec={SecurityId},P={PortfolioName},CL={ClientCode},L={LimitType},Changes={Changes.Select(c => c.ToString()).Join(",")}";
 		}
 	}
 }

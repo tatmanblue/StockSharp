@@ -82,11 +82,7 @@ namespace StockSharp.Algo.Indicators
 		[CategoryLoc(LocalizedStrings.GeneralKey)]
 		public decimal AccelerationMax { get; set; }
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var candle = input.GetValue<Candle>();
@@ -246,30 +242,24 @@ namespace StockSharp.Algo.Indicators
 			_afIncreased = true;
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
-			Acceleration = settings.GetValue(nameof(Acceleration), 0.02M);
-			AccelerationMax = settings.GetValue(nameof(AccelerationMax), 0.2M);
-			AccelerationStep = settings.GetValue(nameof(AccelerationStep), 0.02M);
+			Acceleration = storage.GetValue(nameof(Acceleration), 0.02M);
+			AccelerationMax = storage.GetValue(nameof(AccelerationMax), 0.2M);
+			AccelerationStep = storage.GetValue(nameof(AccelerationStep), 0.02M);
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
-			settings.SetValue(nameof(Acceleration), Acceleration);
-			settings.SetValue(nameof(AccelerationMax), AccelerationMax);
-			settings.SetValue(nameof(AccelerationStep), AccelerationStep);
+			storage.SetValue(nameof(Acceleration), Acceleration);
+			storage.SetValue(nameof(AccelerationMax), AccelerationMax);
+			storage.SetValue(nameof(AccelerationStep), AccelerationStep);
 		}
 	}
 }

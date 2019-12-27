@@ -37,7 +37,7 @@
     </member>
     <member name="T:StockSharp.InteractiveBrokers.FundamentalReportMarketDataMessage">
       <summary>
-            The message to receive market reports for the specified instrument. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewFundamentalReport" /> event.
+            The message to receive market reports for the specified instrument. The results will come through the <see cref="T:StockSharp.InteractiveBrokers.FundamentalReportMessage" /> event.
             </summary>
     </member>
     <member name="P:StockSharp.InteractiveBrokers.FundamentalReportMarketDataMessage.Report">
@@ -83,7 +83,7 @@
     </member>
     <member name="M:StockSharp.InteractiveBrokers.HistogramMarketDataMessage.#ctor">
       <summary>
-            Initializes a new instance of the <see cref="T:StockSharp.InteractiveBrokers.OptionParametersMarketDataMessage" />.
+            Initializes a new instance of the <see cref="T:StockSharp.InteractiveBrokers.HistogramMarketDataMessage" />.
             </summary>
     </member>
     <member name="T:StockSharp.InteractiveBrokers.HistogramMessage">
@@ -97,9 +97,7 @@
             </summary>
     </member>
     <member name="P:StockSharp.InteractiveBrokers.HistogramMessage.OriginalTransactionId">
-      <summary>
-            ID of the original message <see cref="P:StockSharp.Messages.MarketDataMessage.TransactionId" /> for which this message is a response.
-            </summary>
+      <inheritdoc />
     </member>
     <member name="P:StockSharp.InteractiveBrokers.HistogramMessage.Data">
       <summary>
@@ -123,25 +121,21 @@
             </summary>
       <param name="transactionIdGenerator">Transaction id generator.</param>
     </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.TimeFrames">
-      <inheritdoc />
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.AllTimeFrames">
+      <summary>
+            Possible time-frames.
+            </summary>
     </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.CreateOrderCondition">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.IsSupportStopLoss">
+    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
       <inheritdoc />
     </member>
     <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.IsSupportCandlesUpdates">
       <inheritdoc />
     </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.IsSupportSecuritiesLookupAll">
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.SupportedOrderBookDepths">
       <inheritdoc />
     </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.IsSupportNativeSecurityLookup">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.IsSupportNativePortfolioLookup">
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.CandlesBuildFrom">
       <inheritdoc />
     </member>
     <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)">
@@ -1221,21 +1215,6 @@
             Aim of clearing.
             </summary>
     </member>
-    <member name="T:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.OptionExerciseCondition">
-      <summary>
-            Order condition <see cref="F:StockSharp.Messages.OrderTypes.Execute" />.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.OptionExerciseCondition.IsExercise">
-      <summary>
-            Exercise the option.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.OptionExerciseCondition.IsOverride">
-      <summary>
-            Replace action.
-            </summary>
-    </member>
     <member name="T:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.ActiveCondition">
       <summary>
             The condition for GTC orders.
@@ -1484,9 +1463,14 @@
             Condition for hedge-orders.
             </summary>
     </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.OptionExercise">
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.IsOptionsExercise">
       <summary>
-            Order condition <see cref="F:StockSharp.Messages.OrderTypes.Execute" />.
+            Exercise the option.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.IsOptionsOverride">
+      <summary>
+            Replace action.
             </summary>
     </member>
     <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.Active">
@@ -1616,6 +1600,46 @@
     <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.DiscretionaryUpToLimitPrice">
       <summary>
             Convert order of type 'Primary Peg' to 'D-Peg'.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.UsePriceManagementAlgo">
+      <summary>
+            Use price management algorithm.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.AutoCancelDate">
+      <summary>
+            Auto cancel date.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.RefFuturesContractId">
+      <summary>
+            Futures contract id.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.AutoCancelParent">
+      <summary>
+            Auto cancel parent.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.Shareholder">
+      <summary>
+            Shareholder.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.ImbalanceOnly">
+      <summary>
+            Imbalance only.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.RouteMarketableToBbo">
+      <summary>
+            Route marketable to bbo.
+            </summary>
+    </member>
+    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersOrderCondition.ParentPermId">
+      <summary>
+            Parent perm id.
             </summary>
     </member>
     <member name="T:StockSharp.InteractiveBrokers.ExchangeNewsTypes">
@@ -1752,81 +1776,6 @@
             Fee rate.
             </summary>
     </member>
-    <member name="T:StockSharp.InteractiveBrokers.Extensions">
-      <summary>
-            The helper class that is used to access to specific Interactive Brokers information via <see cref="P:StockSharp.Messages.IExtendableEntity.ExtensionInfo" />.
-            </summary>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetClientId(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get the customer identifier.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>The customer identifier. If the identifier does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetLiquidation(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get the liquidation position.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>The liquidation position. If the position does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetCumulativeQuantity(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get a number of profitable contracts in the trade.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>A number of profitable contracts in the trade. If a number does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetAveragePrice(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get the average price of matched order.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>The average price of the matched order. If the price does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetOrderRef(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get the order description.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>The order description. If the description does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetEvRule(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get the Economic Value rule.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>The Economic Value rule. If the rule does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetEvMultiplier(StockSharp.BusinessEntities.MyTrade)">
-      <summary>
-            To get the contract market price factor when the price changes by 1.
-            </summary>
-      <param name="trade">Own trade.</param>
-      <returns>The market price factor. If the factor does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetClientId(StockSharp.BusinessEntities.Order)">
-      <summary>
-            To get the customer identifier.
-            </summary>
-      <param name="order">Order.</param>
-      <returns>The customer identifier. If the identifier does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetLastTradePrice(StockSharp.BusinessEntities.Order)">
-      <summary>
-            To get the last trade price.
-            </summary>
-      <param name="order">Order.</param>
-      <returns>The last trade price. If the price does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.Extensions.GetWhyHeld(StockSharp.BusinessEntities.Order)">
-      <summary>
-            To get the order retention reason.
-            </summary>
-      <param name="order">Order.</param>
-      <returns>The order retention reason. If the reason does not exist then <see langword="null" /> will be returned.</returns>
-    </member>
     <member name="T:StockSharp.InteractiveBrokers.InteractiveBrokersTrader">
       <summary>
             The implementation of the <see cref="T:StockSharp.BusinessEntities.IConnector" /> interface which provides a connection to Interactive Brokers via the IB Gateway.
@@ -1861,134 +1810,6 @@
       <summary>
             Use V100 plus version at the connect time.
             </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewScannerResults">
-      <summary>
-            The new results occurring event of the scanner started previously via <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeScanner(StockSharp.InteractiveBrokers.ScannerFilter)" />.
-            </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewFundamentalReport">
-      <summary>
-            The new report occurring event obtained by subscription <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeFundamentalReport(StockSharp.BusinessEntities.Security,StockSharp.InteractiveBrokers.FundamentalReports)" />.
-            </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewScannerParameters">
-      <summary>
-            The event of occurring of new scanner parameters which are applied via <see cref="T:StockSharp.InteractiveBrokers.ScannerFilter" />. Parameters are passed in the xml format.
-            </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewFinancialAdvise">
-      <summary>
-            The new financial advice occurring event. Parameters are passed in the xml format.
-            </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewOptionParameters">
-      <summary>
-            The new option parameters event.
-            </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewHistogramData">
-      <summary>
-            The new histogram data event.
-            </summary>
-    </member>
-    <member name="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewSoftDollarTiers">
-      <summary>
-            The new Soft Dollar Tier event.
-            </summary>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.OnCancelOrders(System.Int64,System.Nullable{System.Boolean},StockSharp.BusinessEntities.Portfolio,System.Nullable{StockSharp.Messages.Sides},StockSharp.BusinessEntities.ExchangeBoard,StockSharp.BusinessEntities.Security,System.Nullable{StockSharp.Messages.SecurityTypes})">
-      <summary>
-            Cancel orders by filter.
-            </summary>
-      <param name="transactionId">Order cancellation transaction id.</param>
-      <param name="isStopOrder">
-        <see langword="true" />, if cancel only a stop orders, <see langword="false" /> - if regular orders, <see langword="null" /> - both.</param>
-      <param name="portfolio">Portfolio. If the value is equal to <see langword="null" />, then the portfolio does not match the orders cancel filter.</param>
-      <param name="direction">Order side. If the value is <see langword="null" />, the direction does not use.</param>
-      <param name="board">Trading board. If the value is equal to <see langword="null" />, then the board does not match the orders cancel filter.</param>
-      <param name="security">Instrument. If the value is equal to <see langword="null" />, then the instrument does not match the orders cancel filter.</param>
-      <param name="securityType">Instrument type. If the value is equal to <see langword="null" />, then the type does not match the orders cancel filter.</param>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.RequestOptionParameters(StockSharp.BusinessEntities.Security)">
-      <summary>
-            Request option parameters. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewOptionParameters" /> event.
-            </summary>
-      <param name="security">Security.</param>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.RequestScannerParameters">
-      <summary>
-            Request scanner parameters. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewScannerParameters" /> event.
-            </summary>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.RequestSoftDollarTier">
-      <summary>
-            Request Soft Dollar Tier information. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewSoftDollarTiers" /> event.
-            </summary>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeScanner(StockSharp.InteractiveBrokers.ScannerFilter)">
-      <summary>
-            To start the instruments scanner based on specified parameters. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewScannerResults" /> event.
-            </summary>
-      <param name="filter">Filter.</param>
-      <returns>Subscription id.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.UnSubscribeScanner(System.Int64)">
-      <summary>
-            To stop the instruments scanner.
-            </summary>
-      <param name="transactionId">Subscription id, received from <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeScanner(StockSharp.InteractiveBrokers.ScannerFilter)" />.</param>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeFundamentalReport(StockSharp.BusinessEntities.Security,StockSharp.InteractiveBrokers.FundamentalReports)">
-      <summary>
-            To subscribe to receive market reports for the specified instrument. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewFundamentalReport" /> event.
-            </summary>
-      <param name="security">Security.</param>
-      <param name="report">The report type.</param>
-      <returns>Subscription id.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.UnSubscribeFundamentalReport(System.Int64)">
-      <summary>
-            To unsubscribe from receive market reports.
-            </summary>
-      <param name="transactionId">Subscription id, received from <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeFundamentalReport(StockSharp.BusinessEntities.Security,StockSharp.InteractiveBrokers.FundamentalReports)" />.</param>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeHistogram(StockSharp.BusinessEntities.Security,System.DateTimeOffset,System.DateTimeOffset)">
-      <summary>
-            To subscribe to receive histogram data for the specified instrument. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewHistogramData" /> event.
-            </summary>
-      <param name="security">Security.</param>
-      <param name="from">The initial date from which you need to get data.</param>
-      <param name="to">The final date by which you need to get data.</param>
-      <returns>Subscription id.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.UnSubscribeHistogram(System.Int64)">
-      <summary>
-            To unsubscribe from receive histogram data.
-            </summary>
-      <param name="transactionId">Subscription id, received from <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeHistogram(StockSharp.BusinessEntities.Security,System.DateTimeOffset,System.DateTimeOffset)" />.</param>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeOptionCalc(StockSharp.BusinessEntities.Security,System.Decimal,System.Decimal,System.Decimal)">
-      <summary>
-            To subscribe to receive the estimated option values. The results will come through the <see cref="E:StockSharp.BusinessEntities.IConnector.SecuritiesChanged" /> event.
-            </summary>
-      <param name="security">Security.</param>
-      <param name="impliedVolatility">The implied volatility.</param>
-      <param name="optionPrice">The option price.</param>
-      <param name="assetPrice">Underlying asset price.</param>
-      <returns>Subscription id.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.UnSubscribeOptionCalc(System.Int64)">
-      <summary>
-            To unsubscribe from receive the estimated option values.
-            </summary>
-      <param name="transactionId">Subscription id, received from <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeOptionCalc(StockSharp.BusinessEntities.Security,System.Decimal,System.Decimal,System.Decimal)" />.</param>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.OnProcessMessage(StockSharp.Messages.Message)">
-      <summary>
-            Process message.
-            </summary>
-      <param name="message">Message.</param>
     </member>
     <member name="T:StockSharp.InteractiveBrokers.OptionCalcMarketDataMessage">
       <summary>
@@ -2047,7 +1868,7 @@
     </member>
     <member name="T:StockSharp.InteractiveBrokers.ScannerMarketDataMessage">
       <summary>
-            The message about start of the instruments scanner based on specified parameters. The results will come through the <see cref="E:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.NewScannerResults" /> event.
+            The message about start of the instruments scanner based on specified parameters. The results will come through the <see cref="T:StockSharp.InteractiveBrokers.ScannerResultMessage" /> event.
             </summary>
     </member>
     <member name="P:StockSharp.InteractiveBrokers.ScannerMarketDataMessage.IsParametersRequest">
@@ -2088,7 +1909,7 @@
     </member>
     <member name="T:StockSharp.InteractiveBrokers.ScannerResult">
       <summary>
-            The filter result of scanner starting via <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeScanner(StockSharp.InteractiveBrokers.ScannerFilter)" />.
+            The filter result of scanner starting via <see cref="T:StockSharp.InteractiveBrokers.ScannerMarketDataMessage" />.
             </summary>
     </member>
     <member name="P:StockSharp.InteractiveBrokers.ScannerResult.SecurityId">
@@ -2356,7 +2177,7 @@
     </member>
     <member name="T:StockSharp.InteractiveBrokers.ScannerFilter">
       <summary>
-            Filter settings of the scanner starting via <see cref="M:StockSharp.InteractiveBrokers.InteractiveBrokersTrader.SubscribeScanner(StockSharp.InteractiveBrokers.ScannerFilter)" />.
+            Filter settings of the scanner starting via <see cref="T:StockSharp.InteractiveBrokers.ScannerMarketDataMessage" />.
             </summary>
     </member>
     <member name="M:StockSharp.InteractiveBrokers.ScannerFilter.#ctor">
@@ -2469,132 +2290,6 @@
             The shares exclusions type.
             </summary>
     </member>
-    <member name="T:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames">
-      <summary>
-            Time frames for InteractiveBrokers historical candles.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.AllTimeFrames">
-      <summary>
-            Possible time-frames.
-            </summary>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.op_Implicit(System.TimeSpan)~StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames">
-      <summary>
-            Cast <see cref="T:System.TimeSpan" /> object to the type <see cref="T:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames" />.
-            </summary>
-      <param name="value">
-        <see cref="T:System.TimeSpan" /> value.</param>
-      <returns>Object <see cref="T:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames" />.</returns>
-    </member>
-    <member name="M:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.op_Explicit(StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames)~System.TimeSpan">
-      <summary>
-            Cast object from <see cref="T:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames" /> to <see cref="T:System.TimeSpan" />.
-            </summary>
-      <param name="timeFrame">Object <see cref="T:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames" />.</param>
-      <returns>
-        <see cref="T:System.TimeSpan" /> value.</returns>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Second1">
-      <summary>
-            One second time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Second5">
-      <summary>
-            Five second time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Second15">
-      <summary>
-            Fifteen second time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Second30">
-      <summary>
-            Thirty second time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute1">
-      <summary>
-            1 min time-frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute2">
-      <summary>
-            Two minute time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute3">
-      <summary>
-            Three minute time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute5">
-      <summary>
-            5 min time-frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute10">
-      <summary>
-            10 min time-frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute15">
-      <summary>
-            15 min time-frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute20">
-      <summary>
-            20 min time-frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Minute30">
-      <summary>
-            30 min time-frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Hour1">
-      <summary>
-            1 hour time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Hour2">
-      <summary>
-            2 hour time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Hour3">
-      <summary>
-            3 hour time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Hour4">
-      <summary>
-            4 hour time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Hour8">
-      <summary>
-            8 hour time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Day">
-      <summary>
-            Day time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Week">
-      <summary>
-            Weekly time frame.
-            </summary>
-    </member>
-    <member name="P:StockSharp.InteractiveBrokers.InteractiveBrokersTimeFrames.Month">
-      <summary>
-            Monthly time frame.
-            </summary>
-    </member>
     <member name="T:StockSharp.InteractiveBrokers.SoftDollarTier">
       <summary>
             Soft Dollar Tier information.
@@ -2636,9 +2331,7 @@
             </summary>
     </member>
     <member name="P:StockSharp.InteractiveBrokers.SoftDollarTierMessage.OriginalTransactionId">
-      <summary>
-            ID of the original message <see cref="P:StockSharp.Messages.MarketDataMessage.TransactionId" /> for which this message is a response.
-            </summary>
+      <inheritdoc />
     </member>
     <member name="P:StockSharp.InteractiveBrokers.SoftDollarTierMessage.Tiers">
       <summary>

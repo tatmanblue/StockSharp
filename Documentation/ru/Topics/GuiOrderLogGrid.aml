@@ -25,7 +25,7 @@
 		</list>
 		
 	  <para>
-Ниже показаны фрагменты кода с его использованием. Пример кода взят из <legacyItalic>Samples/ITCH/SampleITCH</legacyItalic>.
+Ниже показаны фрагменты кода с его использованием. Пример кода взят из <legacyItalic>Samples/Common/SampleConnection</legacyItalic>.
       </para>
       
 
@@ -43,53 +43,18 @@ Window x:Class="SampleITCH.OrdersLogWindow"
 	  				]]>
               </code>
               <code title="C#" language="C#">
-              		<![CDATA[
+					  <![CDATA[
+private readonly Connector _connector = new Connector();
+
 private void ConnectClick(object sender, RoutedEventArgs e)
 {
-	if (!_isConnected)
-	{
-		if (!_initialized)
-		{
-			_initialized = true;
-
-			// subscribe on connection successfully event
-			Trader.Connected += () =>
-			{
-				// set flag (connection is established)
-				_isConnected = true;
-
-				// update gui labes
-				this.GuiAsync(() => ChangeConnectStatus(true));
-			};
-			
-			.................................................
-			
-			
-			Trader.NewOrderLogItems += _orderLogWindow.OrderLogGrid.LogItems.AddRange;
-
-			.................................................
-
-			ShowSecurities.IsEnabled = ShowTrades.IsEnabled = ShowOrdersLog.IsEnabled = true;
-		}
-
-		Trader.Connect();
-	}
-	else
-	{
-		Trader.Disconnect();
-	}
+	.................................................
+		
+	_connector.NewOrderLogItem += _orderLogWindow.OrderLogGrid.LogItems.Add;
+	.................................................
 }
 	  				]]>
              </code>
-    
-    
-      <para>
-      
-      
-     
-      
-      
-      </para>
     </introduction>
   </developerConceptualDocument>
 </topic>

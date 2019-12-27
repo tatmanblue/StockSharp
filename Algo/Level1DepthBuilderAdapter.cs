@@ -1,8 +1,7 @@
 namespace StockSharp.Algo
 {
-	using System.Linq;
-
 	using Ecng.Collections;
+	using Ecng.Common;
 
 	using StockSharp.Messages;
 
@@ -52,8 +51,8 @@ namespace StockSharp.Algo
 					LocalTime = message.LocalTime,
 					IsByLevel1 = true,
 					IsSorted = true,
-					Bids = bidPrice == null ? Enumerable.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Buy, bidPrice.Value, bidVolume ?? 0) },
-					Asks = askPrice == null ? Enumerable.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Sell, askPrice.Value, askVolume ?? 0) },
+					Bids = bidPrice == null ? ArrayHelper.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Buy, bidPrice.Value, bidVolume ?? 0) },
+					Asks = askPrice == null ? ArrayHelper.Empty<QuoteChange>() : new[] { new QuoteChange(Sides.Sell, askPrice.Value, askVolume ?? 0) },
 				};
 			}
 		}
@@ -69,18 +68,9 @@ namespace StockSharp.Algo
 		{
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (message.IsBack)
-			{
-				base.OnInnerAdapterNewOutMessage(message);
-				return;
-			}
-
 			switch (message.Type)
 			{
 				case MessageTypes.Reset:
@@ -95,7 +85,7 @@ namespace StockSharp.Algo
 					var quoteMsg = GetBuilder(level1Msg.SecurityId).Process(level1Msg);
 
 					if (quoteMsg != null)
-						RaiseNewOutMessage(quoteMsg);
+						base.OnInnerAdapterNewOutMessage(quoteMsg);
 
 					break;
 				}

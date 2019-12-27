@@ -60,16 +60,10 @@ namespace StockSharp.Algo.Indicators
 		[CategoryLoc(LocalizedStrings.GeneralKey)]
 		public RateOfChange Roc { get; }
 
-		/// <summary>
-		/// Whether the indicator is set.
-		/// </summary>
+		/// <inheritdoc />
 		public override bool IsFormed => Roc.IsFormed;
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var candle = input.GetValue<Candle>();
@@ -84,28 +78,22 @@ namespace StockSharp.Algo.Indicators
 			return new DecimalIndicatorValue(this);
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
-			Ema.LoadNotNull(settings, nameof(Ema));
-			Roc.LoadNotNull(settings, nameof(Roc));
+			Ema.LoadNotNull(storage, nameof(Ema));
+			Roc.LoadNotNull(storage, nameof(Roc));
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
-			settings.SetValue(nameof(Ema), Ema.Save());
-			settings.SetValue(nameof(Roc), Roc.Save());
+			storage.SetValue(nameof(Ema), Ema.Save());
+			storage.SetValue(nameof(Roc), Roc.Save());
 		}
 	}
 }

@@ -15,19 +15,10 @@
             </summary>
             <param name="transactionIdGenerator">Transaction id generator.</param>
         </member>
-        <member name="M:StockSharp.Rithmic.RithmicMessageAdapter.CreateOrderCondition">
-            <inheritdoc />
-        </member>
-        <member name="P:StockSharp.Rithmic.RithmicMessageAdapter.IsSupportStopLoss">
-            <inheritdoc />
-        </member>
-        <member name="P:StockSharp.Rithmic.RithmicMessageAdapter.IsSupportNativeSecurityLookup">
-            <inheritdoc />
-        </member>
         <member name="P:StockSharp.Rithmic.RithmicMessageAdapter.IsSupportCandlesUpdates">
             <inheritdoc />
         </member>
-        <member name="P:StockSharp.Rithmic.RithmicMessageAdapter.IsSupportSecuritiesLookupAll">
+        <member name="M:StockSharp.Rithmic.RithmicMessageAdapter.GetHistoryStepSize(StockSharp.Messages.DataType,System.TimeSpan@)">
             <inheritdoc />
         </member>
         <member name="M:StockSharp.Rithmic.RithmicMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)">
@@ -133,7 +124,7 @@
             Possible time-frames.
             </summary>
         </member>
-        <member name="P:StockSharp.Rithmic.RithmicMessageAdapter.TimeFrames">
+        <member name="M:StockSharp.Rithmic.RithmicMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
             <inheritdoc />
         </member>
         <member name="M:StockSharp.Rithmic.RithmicMessageAdapter.Load(Ecng.Serialization.SettingsStorage)">

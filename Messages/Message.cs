@@ -51,11 +51,9 @@ namespace StockSharp.Messages
 	/// </summary>
 	[System.Runtime.Serialization.DataContract]
 	[Serializable]
-	public abstract class Message : Cloneable<Message>, IExtendableEntity
+	public abstract class Message : Cloneable<Message>, IExtendableEntity, IMessage
 	{
-		/// <summary>
-		/// Local timestamp when a message was received/created.
-		/// </summary>
+		/// <inheritdoc />
 		[DisplayNameLoc(LocalizedStrings.Str203Key)]
 		[DescriptionLoc(LocalizedStrings.Str204Key)]
 		[MainCategory]
@@ -65,20 +63,13 @@ namespace StockSharp.Messages
 		[field: NonSerialized]
 		private readonly MessageTypes _type;
 
-		/// <summary>
-		/// Message type.
-		/// </summary>
+		/// <inheritdoc />
 		public MessageTypes Type => _type;
 
 		[field: NonSerialized]
 		private IDictionary<string, object> _extensionInfo;
 
-		/// <summary>
-		/// Extended information.
-		/// </summary>
-		/// <remarks>
-		/// Necessary to keep additional information associated with the message.
-		/// </remarks>
+		/// <inheritdoc />
 		[Ignore]
 		[XmlIgnore]
 		[DisplayNameLoc(LocalizedStrings.ExtendedInfoKey)]
@@ -93,16 +84,22 @@ namespace StockSharp.Messages
 		/// <summary>
 		/// Is loopback message.
 		/// </summary>
+		[Ignore]
+		[XmlIgnore]
 		public bool IsBack { get; set; }
 
 		/// <summary>
 		/// Offline mode handling message.
 		/// </summary>
+		[Ignore]
+		[XmlIgnore]
 		public MessageOfflineModes OfflineMode { get; set; }
 
 		/// <summary>
 		/// Source adapter. Can be <see langword="null" />.
 		/// </summary>
+		[Ignore]
+		[XmlIgnore]
 		public IMessageAdapter Adapter { get; set; }
 
 		/// <summary>
@@ -112,16 +109,13 @@ namespace StockSharp.Messages
 		protected Message(MessageTypes type)
 		{
 			_type = type;
+			//StackTrace = Environment.StackTrace;
 		}
 
-		/// <summary>
-		/// Returns a string that represents the current object.
-		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
-		public override string ToString()
-		{
-			return Type + $",T(L)={LocalTime:yyyy/MM/dd HH:mm:ss.fff}";
-		}
+		//internal readonly string StackTrace;
+
+		/// <inheritdoc />
+		public override string ToString() => Type + $",T(L)={LocalTime:yyyy/MM/dd HH:mm:ss.fff}";
 
 		/// <summary>
 		/// Create a copy of <see cref="Message"/>.
@@ -129,8 +123,20 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public abstract override Message Clone();
 
-		//{
-		//	throw new NotSupportedException(LocalizedStrings.Str17 + " " + GetType().FullName);
-		//}
+		IMessage IMessage.Clone() => Clone();
+
+		/// <summary>
+		/// Copy the message into the <paramref name="destination" />.
+		/// </summary>
+		/// <param name="destination">The object, to which copied information.</param>
+		protected void CopyTo(Message destination)
+		{
+			if (destination == null)
+				throw new ArgumentNullException(nameof(destination));
+
+			destination.LocalTime = LocalTime;
+
+			this.CopyExtensionInfo(destination);
+		}
 	}
 }

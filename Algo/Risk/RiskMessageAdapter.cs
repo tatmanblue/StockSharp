@@ -55,36 +55,35 @@ namespace StockSharp.Algo.Risk
 			}
 		}
 
-		/// <summary>
-		/// Send message.
-		/// </summary>
-		/// <param name="message">Message.</param>
+		/// <inheritdoc />
 		public override void SendInMessage(Message message)
 		{
 			if (message.IsBack)
 			{
 				if (message.Adapter == this)
 				{
-					message.Adapter = null;
-					message.IsBack = false;
+					message.UndoBack();
+
+					base.OnSendInMessage(message);
+					return;
 				}
-				
-				base.SendInMessage(message);
-				return;
 			}
 
-			ProcessRisk(message);
 			base.SendInMessage(message);
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
+		protected override void OnSendInMessage(Message message)
+		{
+			ProcessRisk(message);
+			
+			base.OnSendInMessage(message);
+		}
+
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (!message.IsBack)
-				ProcessRisk(message);
+			ProcessRisk(message);
 
 			base.OnInnerAdapterNewOutMessage(message);
 		}
@@ -103,15 +102,10 @@ namespace StockSharp.Algo.Risk
 						break;
 					}
 					//case RiskActions.StopTrading:
-					//	base.SendInMessage(new DisconnectMessage());
+					//	base.OnSendInMessage(new DisconnectMessage());
 					//	break;
 					case RiskActions.CancelOrders:
-						RaiseNewOutMessage(new OrderGroupCancelMessage
-						{
-							TransactionId = TransactionIdGenerator.GetNextId(),
-							IsBack = true,
-							Adapter = this,
-						});
+						RaiseNewOutMessage(new OrderGroupCancelMessage { TransactionId = TransactionIdGenerator.GetNextId() }.LoopBack(this));
 						break;
 					default:
 						throw new ArgumentOutOfRangeException();

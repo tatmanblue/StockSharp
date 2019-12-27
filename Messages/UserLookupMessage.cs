@@ -10,7 +10,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class UserLookupMessage : Message
+	public class UserLookupMessage : Message, ISubscriptionMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="UserLookupMessage"/>.
@@ -20,9 +20,7 @@ namespace StockSharp.Messages
 		{
 		}
 
-		/// <summary>
-		/// Transaction ID.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.TransactionKey)]
 		[DescriptionLoc(LocalizedStrings.TransactionIdKey, true)]
@@ -57,12 +55,36 @@ namespace StockSharp.Messages
 		/// <returns>The object, to which copied information.</returns>
 		protected UserLookupMessage CopyTo(UserLookupMessage destination)
 		{
+			base.CopyTo(destination);
+
 			destination.Like = Like;
 			destination.TransactionId = TransactionId;
 
-			this.CopyExtensionInfo(destination);
-
 			return destination;
+		}
+
+		DateTimeOffset? ISubscriptionMessage.From
+		{
+			get => null;
+			set { }
+		}
+
+		DateTimeOffset? ISubscriptionMessage.To
+		{
+			get => null;
+			set { }
+		}
+
+		bool ISubscriptionMessage.IsSubscribe
+		{
+			get => true;
+			set { }
+		}
+
+		long IOriginalTransactionIdMessage.OriginalTransactionId
+		{
+			get => 0;
+			set { }
 		}
 	}
 }

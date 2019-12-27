@@ -16,27 +16,16 @@
             <param name="transactionIdGenerator">Transaction id generator.</param>
         </member>
         <member name="P:StockSharp.Cqg.Com.CqgComMessageAdapter.IsNativeIdentifiers">
-            <summary>
-            Identify security in messages by native identifier <see cref="P:StockSharp.Messages.SecurityId.Native"/>.
-            </summary>
-        </member>
-        <member name="P:StockSharp.Cqg.Com.CqgComMessageAdapter.IsSupportSecuritiesLookupAll">
             <inheritdoc />
         </member>
-        <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.CreateOrderCondition">
-            <inheritdoc />
-        </member>
-        <member name="P:StockSharp.Cqg.Com.CqgComMessageAdapter.IsSupportStopLoss">
+        <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.IsAllDownloadingSupported(StockSharp.Messages.DataType)">
             <inheritdoc />
         </member>
         <member name="P:StockSharp.Cqg.Com.CqgComMessageAdapter.IsSupportCandlesUpdates">
             <inheritdoc />
         </member>
         <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)">
-            <summary>
-            Send message.
-            </summary>
-            <param name="message">Message.</param>
+            <inheritdoc />
         </member>
         <member name="P:StockSharp.Cqg.Com.CqgComMessageAdapter.UserName">
             <summary>
@@ -53,20 +42,17 @@
             Possible time-frames.
             </summary>
         </member>
-        <member name="P:StockSharp.Cqg.Com.CqgComMessageAdapter.TimeFrames">
+        <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
             <inheritdoc />
         </member>
         <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.Load(Ecng.Serialization.SettingsStorage)">
-            <summary>
-            Load settings.
-            </summary>
-            <param name="storage">Settings storage.</param>
+            <inheritdoc />
         </member>
         <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.Save(Ecng.Serialization.SettingsStorage)">
-            <summary>
-            Save settings.
-            </summary>
-            <param name="storage">Settings storage.</param>
+            <inheritdoc />
+        </member>
+        <member name="M:StockSharp.Cqg.Com.CqgComMessageAdapter.ToString">
+            <inheritdoc />
         </member>
         <member name="T:StockSharp.Cqg.Com.CqgComOrderCondition">
             <summary>

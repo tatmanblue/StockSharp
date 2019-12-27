@@ -17,7 +17,10 @@ namespace StockSharp.Messages
 {
 	using System;
 	using System.Runtime.Serialization;
-	
+	using System.Xml.Serialization;
+
+	using Ecng.Common;
+
 	using StockSharp.Localization;
 
 	/// <summary>
@@ -25,20 +28,16 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public abstract class OrderMessage : SecurityMessage
+	public abstract class OrderMessage : SecurityMessage, ITransactionIdMessage, IPortfolioNameMessage
 	{
-		/// <summary>
-		/// Transaction ID.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.TransactionKey)]
 		[DescriptionLoc(LocalizedStrings.TransactionIdKey, true)]
 		[MainCategory]
 		public long TransactionId { get; set; }
 
-		/// <summary>
-		/// Portfolio name, for which an order must be placed/cancelled.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.PortfolioKey)]
 		[DescriptionLoc(LocalizedStrings.Str229Key)]
@@ -85,7 +84,35 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.Str154Key)]
 		[DescriptionLoc(LocalizedStrings.Str155Key)]
 		[CategoryLoc(LocalizedStrings.Str156Key)]
+		[XmlIgnore]
 		public OrderCondition Condition { get; set; }
+
+		/// <summary>
+		/// Placed order comment.
+		/// </summary>
+		[DataMember]
+		[DisplayNameLoc(LocalizedStrings.Str135Key)]
+		[DescriptionLoc(LocalizedStrings.Str136Key)]
+		[MainCategory]
+		public string Comment { get; set; }
+
+		/// <summary>
+		/// Copy the message into the <paramref name="destination" />.
+		/// </summary>
+		/// <param name="destination">The object, to which copied information.</param>
+		protected virtual void CopyTo(OrderMessage destination)
+		{
+			base.CopyTo(destination);
+
+			destination.TransactionId = TransactionId;
+			destination.PortfolioName = PortfolioName;
+			destination.OrderType = OrderType;
+			destination.UserOrderId = UserOrderId;
+			destination.BrokerCode = BrokerCode;
+			destination.ClientCode = ClientCode;
+			destination.Condition = Condition?.Clone();
+			destination.Comment = Comment;
+		}
 
 		/// <summary>
 		/// Initialize <see cref="OrderMessage"/>.
@@ -94,6 +121,23 @@ namespace StockSharp.Messages
 		protected OrderMessage(MessageTypes type)
 			: base(type)
 		{
+		}
+
+		/// <inheritdoc />
+		public override string ToString()
+		{
+			var str = base.ToString() + $",TransId={TransactionId},OrdType={OrderType},Pf={PortfolioName}(ClCode={ClientCode}),Cond={Condition}";
+
+			if (!Comment.IsEmpty())
+				str += $",Comment={Comment}";
+
+			if (!UserOrderId.IsEmpty())
+				str += $",UID={UserOrderId}";
+
+			if (!BrokerCode.IsEmpty())
+				str += $",BrID={BrokerCode}";
+
+			return str;
 		}
 	}
 }

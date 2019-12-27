@@ -6,7 +6,7 @@ namespace StockSharp.Algo.Expressions
 
 	using Ecng.Common;
 	using Ecng.Collections;
-	using Ecng.Configuration;
+	using Ecng.ComponentModel.Expressions;
 	using Ecng.Serialization;
 
 	using StockSharp.BusinessEntities;
@@ -15,7 +15,7 @@ namespace StockSharp.Algo.Expressions
 	using StockSharp.Messages;
 
 	/// <summary>
-	/// The index, built of combination of several instruments through mathematic formula <see cref="Expression"/>.
+	/// The index, built of combination of several instruments through mathematical formula <see cref="Expression"/>.
 	/// </summary>
 	#region Ignore
 	//[Ignore(FieldName = nameof(Code))]
@@ -79,7 +79,7 @@ namespace StockSharp.Algo.Expressions
 		public ExpressionFormula Formula { get; private set; } = ExpressionHelper.CreateError(LocalizedStrings.ExpressionNotSet);
 
 		/// <summary>
-		/// The mathematic formula of index.
+		/// The mathematical formula of index.
 		/// </summary>
 		[Browsable(false)]
 		public string Expression
@@ -90,7 +90,7 @@ namespace StockSharp.Algo.Expressions
 				if (value == null)
 					throw new ArgumentNullException(nameof(value));
 
-				var service = ConfigManager.TryGetService<ICompilerService>();
+				var service = ServicesRegistry.TryCompilerService;
 
 				if (service != null)
 				{
@@ -100,7 +100,7 @@ namespace StockSharp.Algo.Expressions
 
 					if (Formula.Error.IsEmpty())
 					{
-						foreach (var id in Formula.SecurityIds)
+						foreach (var id in Formula.Identifiers)
 						{
 							_innerSecurityIds.Add(id.ToSecurityId());
 						}

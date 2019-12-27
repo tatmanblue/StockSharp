@@ -5,9 +5,6 @@ F:StockSharp.LMAX.LmaxLocations.Tokyo/summary;Tokyo
 T:StockSharp.LMAX.LmaxMessageAdapter/summary;DocStr3904
 M:StockSharp.LMAX.LmaxMessageAdapter.#ctor(Ecng.Common.IdGenerator)/summary;DocStr1
 M:StockSharp.LMAX.LmaxMessageAdapter.#ctor(Ecng.Common.IdGenerator)/param/transactionIdGenerator;DocStr3311
-M:StockSharp.LMAX.LmaxMessageAdapter.CreateOrderCondition/inheritdoc;DocStr8459
-P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportStopLoss/inheritdoc;DocStr8459
-P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportTakeProfit/inheritdoc;DocStr8459
 P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportCandlesUpdates/inheritdoc;DocStr8459
 M:StockSharp.LMAX.LmaxMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)/inheritdoc;DocStr8459
 F:StockSharp.LMAX.LmaxMessageAdapter.DefaultHeartbeatInterval/summary;DocStr9884
@@ -18,14 +15,13 @@ P:StockSharp.LMAX.LmaxMessageAdapter.IsDownloadSecurityFromSite/summary;Str3389
 P:StockSharp.LMAX.LmaxMessageAdapter.SecuritiesLocation/summary;LmaxLocation
 P:StockSharp.LMAX.LmaxMessageAdapter.CandleDownloadInterval/summary;DocStr9347
 P:StockSharp.LMAX.LmaxMessageAdapter.AllTimeFrames/summary;DocStr206
-P:StockSharp.LMAX.LmaxMessageAdapter.TimeFrames/inheritdoc;DocStr8459
+M:StockSharp.LMAX.LmaxMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})/inheritdoc;DocStr8459
 M:StockSharp.LMAX.LmaxMessageAdapter.Save(Ecng.Serialization.SettingsStorage)/inheritdoc;DocStr8459
 M:StockSharp.LMAX.LmaxMessageAdapter.Load(Ecng.Serialization.SettingsStorage)/inheritdoc;DocStr8459
 M:StockSharp.LMAX.LmaxMessageAdapter.ToString/inheritdoc;DocStr8459
-P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportNativeSecurityLookup/inheritdoc;DocStr8459
 P:StockSharp.LMAX.LmaxMessageAdapter.IsNativeIdentifiers/inheritdoc;DocStr8459
 P:StockSharp.LMAX.LmaxMessageAdapter.StorageName/inheritdoc;DocStr8459
-P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportSecuritiesLookupAll/inheritdoc;DocStr8459
+M:StockSharp.LMAX.LmaxMessageAdapter.IsAllDownloadingSupported(StockSharp.Messages.DataType)/inheritdoc;DocStr8459
 T:StockSharp.LMAX.LmaxOrderCondition/summary;DocStr60
 M:StockSharp.LMAX.LmaxOrderCondition.#ctor/summary;DocStr1
 P:StockSharp.LMAX.LmaxOrderCondition.StopLossOffset/summary;Str3383

@@ -79,16 +79,10 @@ namespace StockSharp.Algo.Indicators
 		[CategoryLoc(LocalizedStrings.GeneralKey)]
 		public MedianPrice MedianPrice { get; }
 
-		/// <summary>
-		/// Whether the indicator is set.
-		/// </summary>
+		/// <inheritdoc />
 		public override bool IsFormed => LongMa.IsFormed;
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var mpValue = MedianPrice.Process(input);
@@ -99,30 +93,24 @@ namespace StockSharp.Algo.Indicators
 			return new DecimalIndicatorValue(this, sValue - lValue);
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
-			LongMa.LoadNotNull(settings, nameof(LongMa));
-			ShortMa.LoadNotNull(settings, nameof(ShortMa));
-			MedianPrice.LoadNotNull(settings, nameof(MedianPrice));
+			LongMa.LoadNotNull(storage, nameof(LongMa));
+			ShortMa.LoadNotNull(storage, nameof(ShortMa));
+			MedianPrice.LoadNotNull(storage, nameof(MedianPrice));
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
-			settings.SetValue(nameof(LongMa), LongMa.Save());
-			settings.SetValue(nameof(ShortMa), ShortMa.Save());
-			settings.SetValue(nameof(MedianPrice), MedianPrice.Save());
+			storage.SetValue(nameof(LongMa), LongMa.Save());
+			storage.SetValue(nameof(ShortMa), ShortMa.Save());
+			storage.SetValue(nameof(MedianPrice), MedianPrice.Save());
 		}
 	}
 }

@@ -1,9 +1,15 @@
 namespace StockSharp.Messages
 {
 	using System;
+	using System.Collections.Generic;
 	using System.ComponentModel.DataAnnotations;
+	using System.Linq;
+	using System.Net;
 	using System.Runtime.Serialization;
 	using System.Security;
+	using System.Xml.Serialization;
+
+	using Ecng.Collections;
 
 	using StockSharp.Localization;
 
@@ -12,7 +18,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class UserInfoMessage : Message
+	public class UserInfoMessage : Message, ITransactionIdMessage, IOriginalTransactionIdMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="UserInfoMessage"/>.
@@ -34,6 +40,9 @@ namespace StockSharp.Messages
 			Order = 0)]
 		public string Login { get; set; }
 
+		[field: NonSerialized]
+		private SecureString _password;
+
 		/// <summary>
 		/// Portfolio currency.
 		/// </summary>
@@ -44,18 +53,41 @@ namespace StockSharp.Messages
 			Description = LocalizedStrings.PasswordKey + LocalizedStrings.Dot,
 			GroupName = LocalizedStrings.GeneralKey,
 			Order = 1)]
-		public SecureString Password { get; set; }
+		public SecureString Password
+		{
+			get => _password;
+			set => _password = value;
+		}
 
-		/// <summary>
-		/// ID of the original message <see cref="UserLookupMessage.TransactionId"/> for which this message is a response.
-		/// </summary>
+		/// <inheritdoc />
+		public long TransactionId { get; set; }
+
+		/// <inheritdoc />
 		[DataMember]
 		public long OriginalTransactionId { get; set; }
 
 		/// <summary>
 		/// Is blocked.
 		/// </summary>
+		[DataMember]
 		public bool IsBlocked { get; set; }
+
+		private IEnumerable<IPAddress> _ipRestrictions = Enumerable.Empty<IPAddress>();
+
+		/// <summary>
+		/// IP address restrictions.
+		/// </summary>
+		[XmlIgnore]
+		public IEnumerable<IPAddress> IpRestrictions
+		{
+			get => _ipRestrictions;
+			set => _ipRestrictions = value ?? throw new ArgumentNullException(nameof(value));
+		}
+
+		/// <summary>
+		/// Permission set.
+		/// </summary>
+		public IDictionary<UserPermissions, IDictionary<Tuple<string, string, object, DateTime?>, bool>> Permissions { get; } = new Dictionary<UserPermissions, IDictionary<Tuple<string, string, object, DateTime?>, bool>>();
 
 		/// <inheritdoc />
 		public override string ToString()
@@ -79,12 +111,14 @@ namespace StockSharp.Messages
 		/// <returns>The object, to which copied information.</returns>
 		protected UserInfoMessage CopyTo(UserInfoMessage destination)
 		{
+			base.CopyTo(destination);
+
 			destination.Login = Login;
 			destination.Password = Password;
 			destination.OriginalTransactionId = OriginalTransactionId;
 			destination.IsBlocked = IsBlocked;
-
-			this.CopyExtensionInfo(destination);
+			destination.IpRestrictions = IpRestrictions.ToArray();
+			destination.Permissions.AddRange(Permissions.ToDictionary());
 
 			return destination;
 		}

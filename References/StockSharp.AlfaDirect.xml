@@ -15,46 +15,17 @@
             </summary>
       <param name="transactionIdGenerator">Генератор идентификаторов транзакций.</param>
     </member>
-    <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.CreateOrderCondition">
-      <summary>
-            Создать для заявки типа <see cref="F:StockSharp.Messages.OrderTypes.Conditional" /> условие, которое поддерживается подключением.
-            </summary>
-      <returns>Условие для заявки. Если подключение не поддерживает заявки типа <see cref="F:StockSharp.Messages.OrderTypes.Conditional" />, то будет возвращено <see langword="null" />.</returns>
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsSupportStopLoss">
+    <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsAllDownloadingSupported(StockSharp.Messages.DataType)">
       <inheritdoc />
     </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsSupportTakeProfit">
+    <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
       <inheritdoc />
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsSupportNativePortfolioLookup">
-      <summary>
-            Поддерживается ли торговой системой поиск портфелей.
-            </summary>
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsSupportNativeSecurityLookup">
-      <summary>
-            Поддерживается ли торговой системой поиск инструментов.
-            </summary>
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsSupportSecuritiesLookupAll">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.TimeFrames">
-      <summary>
-            Возможные тайм-фреймы.
-            </summary>
     </member>
     <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.IsNativeIdentifiers">
-      <summary>
-            Идентифицировать инструменты в сообщениях по системному идентификатору <see cref="P:StockSharp.Messages.SecurityId.Native" />.
-            </summary>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)">
-      <summary>
-            Отправить сообщение.
-            </summary>
-      <param name="message">Сообщение.</param>
+      <inheritdoc />
     </member>
     <member name="P:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.Version">
       <summary>
@@ -72,81 +43,22 @@
             </summary>
     </member>
     <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.Load(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Загрузить настройки.
-            </summary>
-      <param name="storage">Хранилище настроек.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.Save(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Сохранить настройки.
-            </summary>
-      <param name="storage">Хранилище настроек.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.AlfaDirect.AlfaDirectMessageAdapter.ToString">
-      <summary>
-            Получить строковое представление.
-            </summary>
-      <returns>Строковое представление.</returns>
+      <inheritdoc />
     </member>
     <member name="T:StockSharp.AlfaDirect.AlfaDirectVersions">
       <summary>
             Версии AlfaDirect API.
             </summary>
     </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaDirectVersions.V3">
-      <summary>
-            Третья версия.
-            </summary>
-    </member>
     <member name="F:StockSharp.AlfaDirect.AlfaDirectVersions.V4">
       <summary>
             Четвертая версия.
-            </summary>
-    </member>
-    <member name="T:StockSharp.AlfaDirect.AlfaExceptionCodes">
-      <summary>
-            Коды ошибок.
-            </summary>
-    </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaExceptionCodes.CriticalClientError">
-      <summary>
-            Критическая ошибка клиента.
-            </summary>
-    </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaExceptionCodes.ClientError">
-      <summary>
-            Ошибка клиента.
-            </summary>
-    </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaExceptionCodes.NotConnected">
-      <summary>
-            Нет соединения.
-            </summary>
-    </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaExceptionCodes.ServerError">
-      <summary>
-            Ошибка сервера.
-            </summary>
-    </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaExceptionCodes.Timeout">
-      <summary>
-            Тайм-аут.
-            </summary>
-    </member>
-    <member name="F:StockSharp.AlfaDirect.AlfaExceptionCodes.Warning">
-      <summary>
-            Предупреждение.
-            </summary>
-    </member>
-    <member name="T:StockSharp.AlfaDirect.AlfaException">
-      <summary>
-            Исключение, содержащее код и текст ошибки.
-            </summary>
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaException.Code">
-      <summary>
-            Код ошибки.
             </summary>
     </member>
     <member name="T:StockSharp.AlfaDirect.AlfaOrderCondition">
@@ -281,24 +193,6 @@
       <summary>
             Пароль для входа в терминал.
             </summary>
-    </member>
-    <member name="P:StockSharp.AlfaDirect.AlfaTrader.RealTimeCandleOffset">
-      <summary>
-            Временной отступ для нового запроса получение новой свечи. По-умолчанию равен 5 секундам.
-            </summary>
-      <remarks>Необходим для того, чтобы сервер успел сформировать данные в своем хранилище свечек.</remarks>
-    </member>
-    <member name="M:StockSharp.AlfaDirect.AlfaTrader.Load(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Загрузить настройки.
-            </summary>
-      <param name="storage">Хранилище настроек.</param>
-    </member>
-    <member name="M:StockSharp.AlfaDirect.AlfaTrader.Save(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Сохранить настройки.
-            </summary>
-      <param name="storage">Хранилище настроек.</param>
     </member>
   </members>
 </doc>

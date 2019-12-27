@@ -50,22 +50,37 @@
 			}
 		}
 
-		/// <summary>
-		/// Send message.
-		/// </summary>
-		/// <param name="message">Message.</param>
-		public override void SendInMessage(Message message)
-		{
-			if (message.IsBack)
-			{
-				if (message.Adapter == this)
-				{
-					message.Adapter = null;
-					message.IsBack = false;
-				}
+		/// <inheritdoc />
+		protected override bool SendInBackFurther => false;
 
-				//base.SendInMessage(message);
-				//return;
+		/// <inheritdoc />
+		protected override void OnSendInMessage(Message message)
+		{
+			void ProcessOrderReplaceMessage(OrderReplaceMessage replaceMsg)
+			{
+				if (!_pendingRegistration.TryGetAndRemove(replaceMsg.OriginalTransactionId, out var originOrderMsg))
+					_pendingMessages.Add(replaceMsg);
+				else
+				{
+					_pendingMessages.Remove(originOrderMsg);
+
+					RaiseNewOutMessage(new ExecutionMessage
+					{
+						ExecutionType = ExecutionTypes.Transaction,
+						HasOrderInfo = true,
+						OriginalTransactionId = replaceMsg.OriginalTransactionId,
+						ServerTime = DateTimeOffset.Now,
+						OrderState = OrderStates.Done,
+						OrderType = originOrderMsg.OrderType,
+					});
+
+					var orderMsg = new OrderRegisterMessage();
+
+					replaceMsg.CopyTo(orderMsg);
+
+					_pendingRegistration.Add(replaceMsg.TransactionId, orderMsg);
+					StoreMessage(orderMsg);
+				}
 			}
 
 			switch (message.Type)
@@ -129,9 +144,7 @@
 						{
 							var cancelMsg = (OrderCancelMessage)message.Clone();
 
-							var originOrderMsg = _pendingRegistration.TryGetAndRemove(cancelMsg.OrderTransactionId);
-
-							if (originOrderMsg == null)
+							if (!_pendingRegistration.TryGetAndRemove(cancelMsg.OriginalTransactionId, out var originOrderMsg))
 								_pendingMessages.Add(cancelMsg);
 							else
 							{
@@ -160,34 +173,23 @@
 					{
 						if (!_connected)
 						{
-							var replaceMsg = (OrderReplaceMessage)message.Clone();
+							ProcessOrderReplaceMessage((OrderReplaceMessage)message.Clone());
+							return;
+						}
+					}
 
-							var originOrderMsg = _pendingRegistration.TryGetAndRemove(replaceMsg.OldTransactionId);
+					break;
+				}
+				case MessageTypes.OrderPairReplace:
+				{
+					lock (_syncObject)
+					{
+						if (!_connected)
+						{
+							var pairMsg = (OrderPairReplaceMessage)message.Clone();
 
-							if (originOrderMsg == null)
-								_pendingMessages.Add(replaceMsg);
-							else
-							{
-								_pendingMessages.Remove(originOrderMsg);
-
-								RaiseNewOutMessage(new ExecutionMessage
-								{
-									ExecutionType = ExecutionTypes.Transaction,
-									HasOrderInfo = true,
-									OriginalTransactionId = replaceMsg.OldTransactionId,
-									ServerTime = DateTimeOffset.Now,
-									OrderState = OrderStates.Done,
-									OrderType = originOrderMsg.OrderType,
-								});
-
-								var orderMsg = new OrderRegisterMessage();
-
-								replaceMsg.CopyTo(orderMsg);
-
-								_pendingRegistration.Add(replaceMsg.TransactionId, orderMsg);
-								StoreMessage(orderMsg);
-							}
-
+							ProcessOrderReplaceMessage(pairMsg.Message1);
+							ProcessOrderReplaceMessage(pairMsg.Message2);
 							return;
 						}
 					}
@@ -250,7 +252,10 @@
 
 								case MessageTypes.PortfolioLookup:
 									var pfLookup = (PortfolioLookupMessage)message;
-									RaiseNewOutMessage(new PortfolioLookupResultMessage { OriginalTransactionId = pfLookup.TransactionId });
+
+									if (pfLookup.IsSubscribe)
+										RaiseNewOutMessage(new PortfolioLookupResultMessage { OriginalTransactionId = pfLookup.TransactionId });
+									
 									break;
 							}
 
@@ -264,7 +269,7 @@
 				}
 			}
 
-			base.SendInMessage(message);
+			base.OnSendInMessage(message);
 		}
 
 		private void ProcessSubscriptionMessage<TMessage>(TMessage message, bool isSubscribe, long transactionId, long originalTransactionId, PairSet<long, TMessage> subscriptions)
@@ -308,10 +313,7 @@
 			_pendingMessages.Add(message);
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
 			ConnectMessage connectMessage = null;
@@ -374,10 +376,9 @@
 			{
 				foreach (var msg in msgs)
 				{
-					msg.IsBack = true;
-					msg.Adapter = this;
+					msg.LoopBack(this);
 
-					RaiseNewOutMessage(msg);
+					base.OnInnerAdapterNewOutMessage(msg);
 				}
 			}
 		}

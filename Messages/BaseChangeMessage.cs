@@ -19,6 +19,9 @@ namespace StockSharp.Messages
 	using System.Collections.Generic;
 	using System.ComponentModel;
 	using System.Runtime.Serialization;
+	using System.Xml.Serialization;
+
+	using Ecng.Collections;
 
 	using StockSharp.Localization;
 
@@ -28,25 +31,22 @@ namespace StockSharp.Messages
 	/// <typeparam name="TField">Changes type.</typeparam>
 	[DataContract]
 	[Serializable]
-	public abstract class BaseChangeMessage<TField> : Message
+	public abstract class BaseChangeMessage<TField> : BaseSubscriptionIdMessage, IServerTimeMessage
 	{
-		/// <summary>
-		/// Change server time.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.ServerTimeKey)]
 		[DescriptionLoc(LocalizedStrings.Str168Key)]
 		[MainCategory]
 		public DateTimeOffset ServerTime { get; set; }
 
-		private readonly IDictionary<TField, object> _changes = new Dictionary<TField, object>();
-
 		/// <summary>
 		/// Changes.
 		/// </summary>
 		[Browsable(false)]
-		[DataMember]
-		public IDictionary<TField, object> Changes => _changes;
+		//[DataMember]
+		[XmlIgnore]
+		public IDictionary<TField, object> Changes { get; } = new Dictionary<TField, object>();
 
 		/// <summary>
 		/// Initialize <see cref="BaseChangeMessage{T}"/>.
@@ -58,9 +58,18 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Returns a string that represents the current object.
+		/// Copy the message into the <paramref name="destination" />.
 		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <param name="destination">The object, to which copied information.</param>
+		protected virtual void CopyTo(BaseChangeMessage<TField> destination)
+		{
+			base.CopyTo(destination);
+
+			destination.ServerTime = ServerTime;
+			destination.Changes.AddRange(Changes);
+		}
+
+		/// <inheritdoc />
 		public override string ToString()
 		{
 			return base.ToString() + $",T(S)={ServerTime:yyyy/MM/dd HH:mm:ss.fff}";

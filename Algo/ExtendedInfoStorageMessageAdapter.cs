@@ -1,6 +1,8 @@
 namespace StockSharp.Algo
 {
 	using System;
+	using System.Collections.Generic;
+	using System.Linq;
 
 	using Ecng.Common;
 
@@ -14,21 +16,22 @@ namespace StockSharp.Algo
 	{
 		private readonly IExtendedInfoStorage _extendedInfoStorage;
 		private readonly string _storageName;
-		private readonly Tuple<string, Type>[] _fields;
+		private readonly IEnumerable<Tuple<string, Type>> _fields;
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MessageAdapterWrapper"/>.
 		/// </summary>
 		/// <param name="innerAdapter">Underlying adapter.</param>
 		/// <param name="extendedInfoStorage">Extended info <see cref="Message.ExtensionInfo"/> storage.</param>
-		/// <param name="storageName">Storage name.</param>
-		/// <param name="fields">Extended fields (names and types).</param>
-		public ExtendedInfoStorageMessageAdapter(IMessageAdapter innerAdapter, IExtendedInfoStorage extendedInfoStorage, string storageName, Tuple<string, Type>[] fields)
+		public ExtendedInfoStorageMessageAdapter(IMessageAdapter innerAdapter, IExtendedInfoStorage extendedInfoStorage)
 			: base(innerAdapter)
 		{
-			_extendedInfoStorage = extendedInfoStorage;
-			_storageName = storageName;
-			_fields = fields;
+			if (InnerAdapter.StorageName.IsEmpty())
+				throw new ArgumentException(nameof(innerAdapter));
+
+			_extendedInfoStorage = extendedInfoStorage ?? throw new ArgumentNullException(nameof(extendedInfoStorage));
+			_storageName = InnerAdapter.StorageName;
+			_fields = InnerAdapter.SecurityExtendedFields.ToArray();
 		}
 
 		private readonly SyncObject _sync = new SyncObject();
@@ -48,19 +51,13 @@ namespace StockSharp.Algo
 			return _storage;
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (!message.IsBack)
-			{
-				var secMsg = message as SecurityMessage;
+			var secMsg = message as SecurityMessage;
 
-				if (secMsg?.ExtensionInfo != null)
-					GetStorage().Add(secMsg.SecurityId, secMsg.ExtensionInfo);
-			}
+			if (secMsg?.ExtensionInfo != null)
+				GetStorage().Add(secMsg.SecurityId, secMsg.ExtensionInfo);
 
 			base.OnInnerAdapterNewOutMessage(message);
 		}
@@ -71,7 +68,7 @@ namespace StockSharp.Algo
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new ExtendedInfoStorageMessageAdapter(InnerAdapter, _extendedInfoStorage, _storageName, _fields);
+			return new ExtendedInfoStorageMessageAdapter((IMessageAdapter)InnerAdapter.Clone(), _extendedInfoStorage);
 		}
 	}
 }

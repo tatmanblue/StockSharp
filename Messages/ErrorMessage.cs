@@ -17,13 +17,14 @@ namespace StockSharp.Messages
 {
 	using System;
 	using System.Runtime.Serialization;
+	using System.Xml.Serialization;
 
 	/// <summary>
 	/// Error message.
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class ErrorMessage : Message
+	public class ErrorMessage : Message, IErrorMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="ErrorMessage"/>.
@@ -33,19 +34,15 @@ namespace StockSharp.Messages
 		{
 		}
 
-		/// <summary>
-		/// Error info.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
+		[XmlIgnore]
 		public Exception Error { get; set; }
 
-		/// <summary>
-		/// Returns a string that represents the current object.
-		/// </summary>
-		/// <returns>A string that represents the current object.</returns>
+		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Error={Error.Message}";
+			return base.ToString() + $",Error={Error?.Message}";
 		}
 
 		/// <summary>
@@ -54,11 +51,14 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			return new ErrorMessage
+			var clone = new ErrorMessage
 			{
 				Error = Error,
-				LocalTime = LocalTime,
 			};
+
+			CopyTo(clone);
+
+			return clone;
 		}
 	}
 }

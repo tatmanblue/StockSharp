@@ -2,7 +2,6 @@ namespace StockSharp.Algo.Import
 {
 	using System;
 	using System.Collections.Generic;
-	using System.Collections.ObjectModel;
 	using System.Linq;
 
 	using Ecng.Collections;
@@ -13,10 +12,8 @@ namespace StockSharp.Algo.Import
 	/// <summary>
 	/// Importing field description.
 	/// </summary>
-	public abstract class FieldMapping : NotifiableObject, IPersistable
+	public abstract class FieldMapping : NotifiableObject, IPersistable, ICloneable
 	{
-		//private readonly Settings _settings;
-
 		private FastDateTimeParser _dateParser;
 		private FastTimeSpanParser _timeParser;
 
@@ -29,8 +26,7 @@ namespace StockSharp.Algo.Import
 		/// <param name="displayName">Display name.</param>
 		/// <param name="description">Description.</param>
 		/// <param name="type">Field type.</param>
-		/// <param name="isExtended">Is field extended.</param>
-		protected FieldMapping(string name, string displayName, string description, Type type, bool isExtended)
+		protected FieldMapping(string name, string displayName, string description, Type type)
 		{
 			//if (settings == null)
 			//	throw new ArgumentNullException(nameof(settings));
@@ -41,24 +37,18 @@ namespace StockSharp.Algo.Import
 			if (displayName.IsEmpty())
 				throw new ArgumentNullException(nameof(displayName));
 
-			if (type == null)
-				throw new ArgumentNullException(nameof(type));
-
 			if (description.IsEmpty())
 				description = displayName;
 
-			//_settings = settings;
+			Type = type ?? throw new ArgumentNullException(nameof(type));
 			Name = name;
 			DisplayName = displayName;
 			Description = description;
-			Type = type;
-			IsExtended = isExtended;
 			IsEnabled = true;
 
-			Values = new ObservableCollection<FieldMappingValue>();
 			//Number = -1;
 
-			if (Type == typeof(DateTimeOffset))
+			if (Type.IsDateTime())
 				Format = "yyyyMMdd";
 			else if (Type == typeof(TimeSpan))
 				Format = "hh:mm:ss";
@@ -75,7 +65,7 @@ namespace StockSharp.Algo.Import
 		/// <summary>
 		/// Is field extended.
 		/// </summary>
-		public bool IsExtended { get; private set; }
+		public bool IsExtended { get; set; }
 		
 		/// <summary>
 		/// Display name.
@@ -151,15 +141,41 @@ namespace StockSharp.Algo.Import
 			}
 		}
 
+		private IEnumerable<FieldMappingValue> _values = Enumerable.Empty<FieldMappingValue>();
+
 		/// <summary>
 		/// Mapping values.
 		/// </summary>
-		public ObservableCollection<FieldMappingValue> Values { get; }
+		public IEnumerable<FieldMappingValue> Values
+		{
+			get => _values;
+			set => _values = value ?? throw new ArgumentNullException(nameof(value));
+		}
 
 		/// <summary>
 		/// Default value.
 		/// </summary>
 		public string DefaultValue { get; set; }
+
+		/// <summary>
+		/// Zero as <see langword="null"/>.
+		/// </summary>
+		public bool ZeroAsNull { get; set; }
+
+		/// <summary>
+		/// Multiple field's instancies allowed.
+		/// </summary>
+		public bool IsMultiple => IsAdapter;
+
+		/// <summary>
+		/// <see cref="AdapterType"/> required.
+		/// </summary>
+		public bool IsAdapter { get; set; }
+
+		/// <summary>
+		/// Adapter.
+		/// </summary>
+		public Type AdapterType { get; set; }
 
 		/// <summary>
 		/// Load settings.
@@ -169,9 +185,10 @@ namespace StockSharp.Algo.Import
 		{
 			Name = storage.GetValue<string>(nameof(Name));
 			IsExtended = storage.GetValue<bool>(nameof(IsExtended));
-			Values.AddRange(storage.GetValue<SettingsStorage[]>(nameof(Values)).Select(s => s.Load<FieldMappingValue>()));
+			Values = storage.GetValue<SettingsStorage[]>(nameof(Values)).Select(s => s.Load<FieldMappingValue>()).ToArray();
 			DefaultValue = storage.GetValue<string>(nameof(DefaultValue));
 			Format = storage.GetValue<string>(nameof(Format));
+			ZeroAsNull = storage.GetValue<bool>(nameof(ZeroAsNull));
 
 			//IsEnabled = storage.GetValue(nameof(IsEnabled), IsEnabled);
 
@@ -179,6 +196,9 @@ namespace StockSharp.Algo.Import
 				IsEnabled = storage.GetValue<bool>(nameof(IsEnabled));
 			else
 				Order = storage.GetValue<int?>(nameof(Order));
+
+			IsAdapter = storage.GetValue(nameof(IsAdapter), IsAdapter);
+			AdapterType = storage.GetValue<string>(nameof(AdapterType)).To<Type>();
 		}
 
 		void IPersistable.Save(SettingsStorage storage)
@@ -188,9 +208,11 @@ namespace StockSharp.Algo.Import
 			storage.SetValue(nameof(Values), Values.Select(v => v.Save()).ToArray());
 			storage.SetValue(nameof(DefaultValue), DefaultValue);
 			storage.SetValue(nameof(Format), Format);
-
 			//storage.SetValue(nameof(IsEnabled), IsEnabled);
 			storage.SetValue(nameof(Order), Order);
+			storage.SetValue(nameof(ZeroAsNull), ZeroAsNull);
+			storage.SetValue(nameof(IsAdapter), IsAdapter);
+			storage.SetValue(nameof(AdapterType), AdapterType.To<string>());
 		}
 
 		/// <summary>
@@ -206,7 +228,7 @@ namespace StockSharp.Algo.Import
 				return;
 			}
 
-			if (Values.Count > 0)
+			if (Values.Any())
 			{
 				var v = Values.FirstOrDefault(vl => vl.ValueFile.CompareIgnoreCase(value));
 
@@ -249,24 +271,31 @@ namespace StockSharp.Algo.Import
 					value = str;
 				}
 			}
-			else if (Type == typeof(DateTimeOffset))
+			else if (Type.IsDateTime())
 			{
 				if (value is string str)
 				{
 					if (_dateParser == null)
 						_dateParser = new FastDateTimeParser(Format);
 
-					var dto = _dateParser.ParseDto(str);
-
-					if (dto.Offset.IsDefault())
+					if (Type == typeof(DateTimeOffset))
 					{
-						var tz = Scope<TimeZoneInfo>.Current?.Value;
+						var dto = _dateParser.ParseDto(str);
 
-						if (tz != null)
-							dto = dto.UtcDateTime.ApplyTimeZone(tz);
+						if (dto.Offset.IsDefault())
+						{
+							var tz = Scope<TimeZoneInfo>.Current?.Value;
+
+							if (tz != null)
+								dto = dto.UtcDateTime.ApplyTimeZone(tz);
+						}
+
+						value = dto;
 					}
-
-					value = dto;
+					else
+					{
+						value = _dateParser.Parse(str);
+					}
 				}
 			}
 			else if (Type == typeof(TimeSpan))
@@ -281,7 +310,14 @@ namespace StockSharp.Algo.Import
 			}
 
 			if (value != null)
-				OnApply(instance, value.To(Type));
+			{
+				value = value.To(Type);
+
+				if (ZeroAsNull && Type.IsNumeric() && value.To<decimal>() == 0)
+					return;
+
+				OnApply(instance, value);
+			}
 		}
 
 		/// <summary>
@@ -292,10 +328,10 @@ namespace StockSharp.Algo.Import
 		protected abstract void OnApply(object instance, object value);
 
 		/// <inheritdoc />
-		public override string ToString()
-		{
-			return Name;
-		}
+		public override string ToString() => Name;
+
+		/// <inheritdoc />
+		public abstract object Clone();
 
 		/// <summary>
 		/// Reset state.
@@ -304,6 +340,15 @@ namespace StockSharp.Algo.Import
 		{
 			_dateParser = null;
 			_timeParser = null;
+		}
+
+		/// <summary>
+		/// Get <see cref="FieldMapping"/> instance or clone dependent on <see cref="IsMultiple"/>.
+		/// </summary>
+		/// <returns>Field.</returns>
+		public FieldMapping GetOrClone()
+		{
+			return IsMultiple ? (FieldMapping)Clone() : this;
 		}
 	}
 
@@ -323,9 +368,8 @@ namespace StockSharp.Algo.Import
 		/// <param name="displayName">Display name.</param>
 		/// <param name="description">Description.</param>
 		/// <param name="apply">Apply field value action.</param>
-		/// <param name="isExtended">Is field extended.</param>
-		public FieldMapping(string name, string displayName, string description, Action<TInstance, TValue> apply, bool isExtended = false)
-			: base(name, displayName, description, typeof(TValue), isExtended)
+		public FieldMapping(string name, string displayName, string description, Action<TInstance, TValue> apply)
+			: base(name, displayName, description, typeof(TValue))
 		{
 			_apply = apply ?? throw new ArgumentNullException(nameof(apply));
 		}
@@ -334,6 +378,14 @@ namespace StockSharp.Algo.Import
 		protected override void OnApply(object instance, object value)
 		{
 			_apply((TInstance)instance, (TValue)value);
+		}
+
+		/// <inheritdoc />
+		public override object Clone()
+		{
+			var clone = new FieldMapping<TInstance, TValue>(Name, DisplayName, Description, _apply);
+			clone.Load(this.Save());
+			return clone;
 		}
 	}
 }

@@ -19,7 +19,6 @@ namespace StockSharp.Messages
 	using System.Linq;
 	using System.Runtime.Serialization;
 
-	using Ecng.Collections;
 	using Ecng.Common;
 
 	using StockSharp.Localization;
@@ -31,41 +30,15 @@ namespace StockSharp.Messages
 	[Serializable]
 	[DisplayNameLoc(LocalizedStrings.PortfolioKey)]
 	[DescriptionLoc(LocalizedStrings.Str541Key)]
-	public sealed class PortfolioChangeMessage : BaseChangeMessage<PositionChangeTypes>
+	public sealed class PortfolioChangeMessage : PositionChangeMessage
 	{
-		/// <summary>
-		/// Portfolio name.
-		/// </summary>
-		[DataMember]
-		[DisplayNameLoc(LocalizedStrings.NameKey)]
-		[DescriptionLoc(LocalizedStrings.Str247Key)]
-		[MainCategory]
-		public string PortfolioName { get; set; }
-
-		/// <summary>
-		/// Electronic board code.
-		/// </summary>
-		[DataMember]
-		[DisplayNameLoc(LocalizedStrings.BoardKey)]
-		[DescriptionLoc(LocalizedStrings.BoardCodeKey, true)]
-		[MainCategory]
-		public string BoardCode { get; set; }
-
-		/// <summary>
-		/// Client code assigned by the broker.
-		/// </summary>
-		[DataMember]
-		[MainCategory]
-		[DisplayNameLoc(LocalizedStrings.ClientCodeKey)]
-		[DescriptionLoc(LocalizedStrings.ClientCodeDescKey)]
-		public string ClientCode { get; set; }
-
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PortfolioChangeMessage"/>.
 		/// </summary>
 		public PortfolioChangeMessage()
-			: base(MessageTypes.PortfolioChange)
+			//: base(MessageTypes.PortfolioChange)
 		{
+			SecurityId = SecurityId.Money;
 		}
 
 		/// <summary>
@@ -74,25 +47,15 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			var msg = new PortfolioChangeMessage
-			{
-				LocalTime = LocalTime,
-				PortfolioName = PortfolioName,
-				BoardCode = BoardCode,
-				ServerTime = ServerTime,
-				ClientCode = ClientCode,
-			};
-
-			msg.Changes.AddRange(Changes);
-			this.CopyExtensionInfo(msg);
-
-			return msg;
+			var clone = new PortfolioChangeMessage();
+			CopyTo(clone);
+			return clone;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",P={PortfolioName},Changes={Changes.Select(c => c.ToString()).Join(",")}";
+			return base.ToString() + $",P={PortfolioName},CL={ClientCode},Changes={Changes.Select(c => c.ToString()).Join(",")}";
 		}
 	}
 }

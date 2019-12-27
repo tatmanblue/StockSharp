@@ -24,7 +24,7 @@ namespace StockSharp.Algo.Candles.Compression
 		}
 
 		/// <inheritdoc />
-		public override void SendInMessage(Message message)
+		protected override void OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -63,18 +63,12 @@ namespace StockSharp.Algo.Candles.Compression
 				}
 			}
 
-			base.SendInMessage(message);
+			base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (message.IsBack)
-			{
-				base.OnInnerAdapterNewOutMessage(message);
-				return;
-			}
-
 			switch (message.Type)
 			{
 				case MessageTypes.CandleTimeFrame:
@@ -88,9 +82,9 @@ namespace StockSharp.Algo.Candles.Compression
 					break;
 				}
 
-				case MessageTypes.MarketDataFinished:
+				case MessageTypes.SubscriptionFinished:
 				{
-					_infos.Remove(((MarketDataFinishedMessage)message).OriginalTransactionId);
+					_infos.Remove(((SubscriptionFinishedMessage)message).OriginalTransactionId);
 					break;
 				}
 			}
@@ -105,7 +99,7 @@ namespace StockSharp.Algo.Candles.Compression
 			if (info == null)
 				return;
 
-			if (info.SecurityId == default(SecurityId))
+			if (info.SecurityId == default)
 				info.SecurityId = message.SecurityId;
 			else
 				message.SecurityId = info.SecurityId;
@@ -180,7 +174,7 @@ namespace StockSharp.Algo.Candles.Compression
 			var currentValue = getValue(current);
 			var fromValue = getValue(from);
 
-			if (currentValue == default(DateTimeOffset) && fromValue != default(DateTimeOffset))
+			if (currentValue == default && fromValue != default)
 				setValue(current, fromValue);
 			else
 				setValue(from, currentValue);
@@ -192,7 +186,7 @@ namespace StockSharp.Algo.Candles.Compression
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new CandleHolderMessageAdapter(InnerAdapter);
+			return new CandleHolderMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
 		}
 	}
 }

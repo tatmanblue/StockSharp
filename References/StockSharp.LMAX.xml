@@ -35,15 +35,6 @@
             </summary>
       <param name="transactionIdGenerator">Transaction id generator.</param>
     </member>
-    <member name="M:StockSharp.LMAX.LmaxMessageAdapter.CreateOrderCondition">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportStopLoss">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportTakeProfit">
-      <inheritdoc />
-    </member>
     <member name="P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportCandlesUpdates">
       <inheritdoc />
     </member>
@@ -90,7 +81,7 @@
             Possible time-frames.
             </summary>
     </member>
-    <member name="P:StockSharp.LMAX.LmaxMessageAdapter.TimeFrames">
+    <member name="M:StockSharp.LMAX.LmaxMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
       <inheritdoc />
     </member>
     <member name="M:StockSharp.LMAX.LmaxMessageAdapter.Save(Ecng.Serialization.SettingsStorage)">
@@ -102,16 +93,13 @@
     <member name="M:StockSharp.LMAX.LmaxMessageAdapter.ToString">
       <inheritdoc />
     </member>
-    <member name="P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportNativeSecurityLookup">
-      <inheritdoc />
-    </member>
     <member name="P:StockSharp.LMAX.LmaxMessageAdapter.IsNativeIdentifiers">
       <inheritdoc />
     </member>
     <member name="P:StockSharp.LMAX.LmaxMessageAdapter.StorageName">
       <inheritdoc />
     </member>
-    <member name="P:StockSharp.LMAX.LmaxMessageAdapter.IsSupportSecuritiesLookupAll">
+    <member name="M:StockSharp.LMAX.LmaxMessageAdapter.IsAllDownloadingSupported(StockSharp.Messages.DataType)">
       <inheritdoc />
     </member>
     <member name="T:StockSharp.LMAX.LmaxOrderCondition">

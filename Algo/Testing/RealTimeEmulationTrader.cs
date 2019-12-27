@@ -16,14 +16,13 @@ Copyright 2010 by StockSharp, LLC
 namespace StockSharp.Algo.Testing
 {
 	using System;
+	using System.Collections.Generic;
 	using System.Linq;
 
-	using Ecng.Common;
 	using Ecng.Serialization;
 
 	using StockSharp.BusinessEntities;
 	using StockSharp.Messages;
-	using StockSharp.Localization;
 	using StockSharp.Logging;
 
 	using EntityFactory = StockSharp.Algo.EntityFactory;
@@ -33,10 +32,6 @@ namespace StockSharp.Algo.Testing
 	/// </summary>
 	public interface IRealTimeEmulationMarketDataAdapter : IMessageAdapterWrapper
 	{
-		/// <summary>
-		/// Track the connection <see cref="IMessageAdapterWrapper.InnerAdapter" /> lifetime.
-		/// </summary>
-		bool OwnAdapter { get; }
 	}
 
 	/// <summary>
@@ -48,16 +43,16 @@ namespace StockSharp.Algo.Testing
 	{
 		private sealed class EmulationEntityFactory : EntityFactory
 		{
-			private readonly Portfolio _portfolio;
+			private readonly IPortfolioProvider _portfolioProvider;
 
-			public EmulationEntityFactory(Portfolio portfolio)
+			public EmulationEntityFactory(IPortfolioProvider portfolioProvider)
 			{
-				_portfolio = portfolio;
+				_portfolioProvider = portfolioProvider ?? throw new ArgumentNullException(nameof(portfolioProvider));
 			}
 
 			public override Portfolio CreatePortfolio(string name)
 			{
-				return _portfolio.Name.CompareIgnoreCase(name) ? _portfolio : base.CreatePortfolio(name);
+				return _portfolioProvider.GetPortfolio(name) ?? base.CreatePortfolio(name);
 			}
 		}
 
@@ -68,15 +63,12 @@ namespace StockSharp.Algo.Testing
 			public RealTimeEmulationMarketDataAdapter(RealTimeEmulationTrader<TUnderlyingMarketDataAdapter> connector, IMessageAdapter innerAdapter)
 				: base(innerAdapter)
 			{
-				_connector = connector;
+				_connector = connector ?? throw new ArgumentNullException(nameof(connector));
 			}
 
-			public override bool SecurityLookupRequired => _connector._ownAdapter && base.SecurityLookupRequired;
-			public override bool PortfolioLookupRequired => false;
-			public override bool OrderStatusRequired => false;
-			public override bool IsSupportSubscriptionByPortfolio => false;
 			public override OrderCancelVolumeRequireTypes? OrderCancelVolumeRequired => null;
-			public override MessageTypes[] SupportedMessages => InnerAdapter.SupportedMessages.Except(new[] { MessageTypes.OrderStatus, MessageTypes.OrderRegister, MessageTypes.OrderCancel, MessageTypes.OrderGroupCancel, MessageTypes.OrderReplace, MessageTypes.OrderPairReplace, MessageTypes.Portfolio, MessageTypes.PortfolioLookup }).ToArray();
+			public override IEnumerable<MessageTypes> SupportedInMessages => InnerAdapter.SupportedInMessages.Except(Extensions.TransactionalMessageTypes).ToArray();
+			public override IEnumerable<MessageTypes> SupportedOutMessages => InnerAdapter.SupportedOutMessages.Except(new[] { MessageTypes.Portfolio, MessageTypes.PortfolioRoute, MessageTypes.PortfolioRouteListFinished, MessageTypes.PositionChange, MessageTypes.PortfolioLookupResult }).ToArray();
 
 			private ILogSource _parent;
 
@@ -92,7 +84,7 @@ namespace StockSharp.Algo.Testing
 				}
 			}
 
-			public override void SendInMessage(Message message)
+			protected override void OnSendInMessage(Message message)
 			{
 				switch (message.Type)
 				{
@@ -129,6 +121,7 @@ namespace StockSharp.Algo.Testing
 						break;
 					}
 
+					case MessageTypes.MarketData:
 					case MessageTypes.ChangePassword:
 					{
 						if (!_connector._ownAdapter)
@@ -149,6 +142,7 @@ namespace StockSharp.Algo.Testing
 					case MessageTypes.Connect:
 					case MessageTypes.Disconnect:
 					case MessageTypes.ChangePassword:
+					case MessageTypes.SubscriptionResponse:
 					{
 						if (_connector._ownAdapter)
 							break;
@@ -158,7 +152,7 @@ namespace StockSharp.Algo.Testing
 
 					case MessageTypes.OrderStatus:
 					case MessageTypes.Portfolio:
-					case MessageTypes.PortfolioChange:
+					//case MessageTypes.PortfolioChange:
 					case MessageTypes.PortfolioLookupResult:
 					case MessageTypes.PositionChange:
 						return;
@@ -186,11 +180,9 @@ namespace StockSharp.Algo.Testing
 			{
 				return new RealTimeEmulationMarketDataAdapter(_connector, InnerAdapter);
 			}
-
-			bool IRealTimeEmulationMarketDataAdapter.OwnAdapter => _connector._ownAdapter;
 		}
 
-		private readonly Portfolio _portfolio;
+		private readonly IPortfolioProvider _portfolioProvider;
 		private readonly bool _ownAdapter;
 
 		/// <summary>
@@ -198,11 +190,7 @@ namespace StockSharp.Algo.Testing
 		/// </summary>
 		/// <param name="underlyngMarketDataAdapter"><see cref="IMessageAdapter"/>, through which market data will be got.</param>
 		public RealTimeEmulationTrader(TUnderlyingMarketDataAdapter underlyngMarketDataAdapter)
-			: this(underlyngMarketDataAdapter, new Portfolio
-			{
-				Name = LocalizedStrings.Str1209,
-				BeginValue = 1000000
-			})
+			: this(underlyngMarketDataAdapter, Portfolio.CreateSimulator())
 		{
 		}
 
@@ -213,14 +201,25 @@ namespace StockSharp.Algo.Testing
 		/// <param name="portfolio">The portfolio to be used to register orders. If value is not given, the portfolio with default name Simulator will be created.</param>
 		/// <param name="ownAdapter">Track the connection <paramref name="underlyngMarketDataAdapter" /> lifetime.</param>
 		public RealTimeEmulationTrader(TUnderlyingMarketDataAdapter underlyngMarketDataAdapter, Portfolio portfolio, bool ownAdapter = true)
+			: this(underlyngMarketDataAdapter, new CollectionPortfolioProvider(new[] { portfolio }), ownAdapter)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="RealTimeEmulationTrader{T}"/>.
+		/// </summary>
+		/// <param name="underlyngMarketDataAdapter"><see cref="IMessageAdapter"/>, through which market data will be got.</param>
+		/// <param name="portfolioProvider">The portfolio to be used to register orders. If value is not given, the portfolio with default name Simulator will be created.</param>
+		/// <param name="ownAdapter">Track the connection <paramref name="underlyngMarketDataAdapter" /> lifetime.</param>
+		public RealTimeEmulationTrader(TUnderlyingMarketDataAdapter underlyngMarketDataAdapter, IPortfolioProvider portfolioProvider, bool ownAdapter = true)
 		{
 			UnderlyngMarketDataAdapter = underlyngMarketDataAdapter ?? throw new ArgumentNullException(nameof(underlyngMarketDataAdapter));
 
 			UpdateSecurityByLevel1 = false;
 			UpdateSecurityLastQuotes = false;
 
-			_portfolio = portfolio ?? throw new ArgumentNullException(nameof(portfolio));
-			EntityFactory = new EmulationEntityFactory(_portfolio);
+			_portfolioProvider = portfolioProvider ?? throw new ArgumentNullException(nameof(portfolioProvider));
+			EntityFactory = new EmulationEntityFactory(_portfolioProvider);
 
 			_ownAdapter = ownAdapter;
 
@@ -243,22 +242,22 @@ namespace StockSharp.Algo.Testing
 		/// </summary>
 		public TUnderlyingMarketDataAdapter UnderlyngMarketDataAdapter { get; }
 
-		/// <summary>
-		/// To process the message, containing market data.
-		/// </summary>
-		/// <param name="message">The message, containing market data.</param>
+		/// <inheritdoc />
 		protected override void OnProcessMessage(Message message)
 		{
 			if (message.Adapter == TransactionAdapter)
 			{
 				if (message.Type == MessageTypes.Connect)
 				{
-					// passing into initial values
-					TransactionAdapter.SendInMessage(_portfolio.ToMessage());
-					TransactionAdapter.SendInMessage(new PortfolioChangeMessage
+					foreach (var portfolio in _portfolioProvider.Portfolios)
 					{
-						PortfolioName = _portfolio.Name
-					}.TryAdd(PositionChangeTypes.BeginValue, _portfolio.BeginValue, true));
+						// passing into initial values
+						TransactionAdapter.SendInMessage(portfolio.ToMessage());
+						TransactionAdapter.SendInMessage(new PortfolioChangeMessage
+						{
+							PortfolioName = portfolio.Name
+						}.TryAdd(PositionChangeTypes.BeginValue, portfolio.BeginValue, true));	
+					}
 				}
 			}
 			else
@@ -271,7 +270,7 @@ namespace StockSharp.Algo.Testing
 					{
 						case MessageTypes.Connect:
 						case MessageTypes.Disconnect:
-						case MessageTypes.MarketData:
+						case MessageTypes.SubscriptionResponse:
 						case MessageTypes.SecurityLookupResult:
 						//case MessageTypes.Session:
 						case MessageTypes.ChangePassword:
@@ -299,10 +298,7 @@ namespace StockSharp.Algo.Testing
 			base.OnProcessMessage(message);
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="storage">Settings storage.</param>
+		/// <inheritdoc />
 		public override void Load(SettingsStorage storage)
 		{
 			if (_ownAdapter)
@@ -311,10 +307,7 @@ namespace StockSharp.Algo.Testing
 			base.Load(storage);
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="storage">Settings storage.</param>
+		/// <inheritdoc />
 		public override void Save(SettingsStorage storage)
 		{
 			if (_ownAdapter)
@@ -323,9 +316,7 @@ namespace StockSharp.Algo.Testing
 			base.Save(storage);
 		}
 
-		/// <summary>
-		/// Release resources.
-		/// </summary>
+		/// <inheritdoc />
 		protected override void DisposeManaged()
 		{
 			if (_ownAdapter)

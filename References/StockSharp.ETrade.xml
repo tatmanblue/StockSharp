@@ -56,18 +56,6 @@
             </summary>
       <param name="transactionIdGenerator">Transaction id generator.</param>
     </member>
-    <member name="M:StockSharp.ETrade.ETradeMessageAdapter.CreateOrderCondition">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.ETrade.ETradeMessageAdapter.IsSupportStopLoss">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.ETrade.ETradeMessageAdapter.IsSupportSecuritiesLookupAll">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.ETrade.ETradeMessageAdapter.IsSupportNativeSecurityLookup">
-      <inheritdoc />
-    </member>
     <member name="M:StockSharp.ETrade.ETradeMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)">
       <inheritdoc />
     </member>
@@ -103,22 +91,13 @@
             </summary>
     </member>
     <member name="M:StockSharp.ETrade.ETradeMessageAdapter.Load(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Load settings.
-            </summary>
-      <param name="storage">Settings storage.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.ETrade.ETradeMessageAdapter.Save(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Save settings.
-            </summary>
-      <param name="storage">Settings storage.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.ETrade.ETradeMessageAdapter.ToString">
-      <summary>
-            Returns a string that represents the current object.
-            </summary>
-      <returns>A string that represents the current object.</returns>
+      <inheritdoc />
     </member>
     <member name="T:StockSharp.ETrade.ETradeStopTypes">
       <summary>
@@ -189,12 +168,6 @@
       <summary>
             Initializes a new instance of the <see cref="T:StockSharp.ETrade.ETradeTrader" />.
             </summary>
-    </member>
-    <member name="M:StockSharp.ETrade.ETradeTrader.SetCustomAuthorizationMethod(System.Action{System.String})">
-      <summary>
-            Set own authorization mode (the default is browser uses).
-            </summary>
-      <param name="method">ETrade authorization method.</param>
     </member>
     <member name="T:StockSharp.ETrade.Xaml.AuthDialog">
       <summary>

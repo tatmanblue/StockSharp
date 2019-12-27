@@ -173,9 +173,7 @@ namespace StockSharp.Algo.Indicators
 		[Browsable(false)]
 		public int LastValueShift { get; private set; }
 
-		/// <summary>
-		/// To reset the indicator status to initial. The method is called each time when initial settings are changed (for example, the length of period).
-		/// </summary>
+		/// <inheritdoc />
 		public override void Reset()
 		{
 			_needAdd = true;
@@ -188,11 +186,7 @@ namespace StockSharp.Algo.Indicators
 			base.Reset();
 		}
 
-		/// <summary>
-		/// To handle the input value.
-		/// </summary>
-		/// <param name="input">The input value.</param>
-		/// <returns>The resulting value.</returns>
+		/// <inheritdoc />
 		protected override IIndicatorValue OnProcess(IIndicatorValue input)
 		{
 			var candle = input.GetValue<Candle>();
@@ -403,30 +397,24 @@ namespace StockSharp.Algo.Indicators
 			return new DecimalIndicatorValue(this, _zigZagBuffer[LastValueShift]);
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Load(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Load(SettingsStorage storage)
 		{
-			base.Load(settings);
+			base.Load(storage);
 
-			BackStep = settings.GetValue<int>(nameof(BackStep));
-			Depth = settings.GetValue<int>(nameof(Depth));
-			Deviation.Load(settings.GetValue<SettingsStorage>(nameof(Deviation)));
+			BackStep = storage.GetValue<int>(nameof(BackStep));
+			Depth = storage.GetValue<int>(nameof(Depth));
+			Deviation.Load(storage.GetValue<SettingsStorage>(nameof(Deviation)));
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="settings">Settings storage.</param>
-		public override void Save(SettingsStorage settings)
+		/// <inheritdoc />
+		public override void Save(SettingsStorage storage)
 		{
-			base.Save(settings);
+			base.Save(storage);
 
-			settings.SetValue(nameof(BackStep), BackStep);
-			settings.SetValue(nameof(Depth), Depth);
-			settings.SetValue(nameof(Deviation), Deviation.Save());
+			storage.SetValue(nameof(BackStep), BackStep);
+			storage.SetValue(nameof(Depth), Depth);
+			storage.SetValue(nameof(Deviation), Deviation.Save());
 		}
 	}
 }

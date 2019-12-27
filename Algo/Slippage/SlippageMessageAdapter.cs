@@ -44,39 +44,24 @@ namespace StockSharp.Algo.Slippage
 			set => _slippageManager = value ?? throw new ArgumentNullException(nameof(value));
 		}
 
-		/// <summary>
-		/// Send message.
-		/// </summary>
-		/// <param name="message">Message.</param>
-		public override void SendInMessage(Message message)
+		/// <inheritdoc />
+		protected override void OnSendInMessage(Message message)
 		{
-			if (message.IsBack)
-			{
-				base.SendInMessage(message);
-				return;
-			}
-
 			SlippageManager.ProcessMessage(message);
-			base.SendInMessage(message);
+			base.OnSendInMessage(message);
 		}
 
-		/// <summary>
-		/// Process <see cref="MessageAdapterWrapper.InnerAdapter"/> output message.
-		/// </summary>
-		/// <param name="message">The message.</param>
+		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			if (!message.IsBack)
+			var slippage = SlippageManager.ProcessMessage(message);
+
+			if (slippage != null)
 			{
-				var slippage = SlippageManager.ProcessMessage(message);
+				var execMsg = (ExecutionMessage)message;
 
-				if (slippage != null)
-				{
-					var execMsg = (ExecutionMessage)message;
-
-					if (execMsg.Slippage == null)
-						execMsg.Slippage = slippage;
-				}	
+				if (execMsg.Slippage == null)
+					execMsg.Slippage = slippage;
 			}
 
 			base.OnInnerAdapterNewOutMessage(message);

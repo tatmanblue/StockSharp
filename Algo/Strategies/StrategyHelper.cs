@@ -22,7 +22,6 @@ namespace StockSharp.Algo.Strategies
 
 	using Ecng.Collections;
 	using Ecng.Common;
-	using Ecng.Configuration;
 	using Ecng.Serialization;
 
 	using MoreLinq;
@@ -183,6 +182,7 @@ namespace StockSharp.Algo.Strategies
 		/// </summary>
 		/// <param name="strategy">Strategy.</param>
 		/// <returns>The candles manager.</returns>
+		[Obsolete("Use Strategy direct.")]
 		public static ICandleManager GetCandleManager(this Strategy strategy)
 		{
 			if (strategy == null)
@@ -196,6 +196,7 @@ namespace StockSharp.Algo.Strategies
 		/// </summary>
 		/// <param name="strategy">Strategy.</param>
 		/// <param name="candleManager">The candles manager.</param>
+		[Obsolete("Use Strategy direct.")]
 		public static void SetCandleManager(this Strategy strategy, ICandleManager candleManager)
 		{
 			if (strategy == null)
@@ -205,37 +206,6 @@ namespace StockSharp.Algo.Strategies
 				throw new ArgumentNullException(nameof(candleManager));
 
 			strategy.Environment.SetValue(_candleManagerKey, candleManager);
-		}
-
-		private const string _messageSenderKey = "MessageSender";
-
-		/// <summary>
-		/// To get the message sender, associated with the passed strategy.
-		/// </summary>
-		/// <param name="strategy">Strategy.</param>
-		/// <returns>Message sender.</returns>
-		public static IMessageSender GetMessageSender(this Strategy strategy)
-		{
-			if (strategy == null)
-				throw new ArgumentNullException(nameof(strategy));
-
-			return strategy.Environment.GetValue<IMessageSender>(_messageSenderKey);
-		}
-
-		/// <summary>
-		/// To set the message sender for the strategy.
-		/// </summary>
-		/// <param name="strategy">Strategy.</param>
-		/// <param name="messageSender">Message sender.</param>
-		public static void SetMessageSender(this Strategy strategy, IMessageSender messageSender)
-		{
-			if (strategy == null)
-				throw new ArgumentNullException(nameof(strategy));
-
-			if (messageSender == null)
-				throw new ArgumentNullException(nameof(messageSender));
-
-			strategy.Environment.SetValue(_messageSenderKey, messageSender);
 		}
 
 		private const string _isEmulationModeKey = "IsEmulationMode";
@@ -306,7 +276,7 @@ namespace StockSharp.Algo.Strategies
 			var settings = storage.GetValue<SettingsStorage>("Settings");
 			if (settings != null && settings.Count != 0)
 			{
-				var connector = strategy.Connector ?? ConfigManager.TryGetService<IConnector>();
+				var connector = strategy.Connector ?? ServicesRegistry.IConnector;
 
 				if (connector != null && settings.Contains("security"))
 					strategy.Security = connector.LookupById(settings.GetValue<string>("security"));
@@ -376,22 +346,12 @@ namespace StockSharp.Algo.Strategies
 		//	return strategy.Security.GetMarketPrice(strategy.SafeGetConnector(), side);
 		//}
 
-		/// <summary>
-		/// To get the tracing-based order identifier.
-		/// </summary>
-		/// <param name="order">Order.</param>
-		/// <returns>The tracing-based order identifier.</returns>
-		public static string GetTraceId(this Order order)
-		{
-			return "{0} (0x{1:X})".Put(order.TransactionId, order.GetHashCode());
-		}
-
 		private sealed class EquityStrategy : Strategy
 		{
 			private readonly Dictionary<DateTimeOffset, Order[]> _orders;
 			private readonly Dictionary<Tuple<Security, Portfolio>, Strategy> _childStrategies;
 
-			public EquityStrategy(IEnumerable<Order> orders, IDictionary<Security, decimal> openedPositions)
+			public EquityStrategy(Order[] orders, IDictionary<Security, decimal> openedPositions)
 			{
 				_orders = orders.GroupBy(o => o.Time).ToDictionary(g => g.Key, g => g.ToArray());
 
@@ -454,14 +414,14 @@ namespace StockSharp.Algo.Strategies
 
 				var strategy = new EquityStrategy(array, openedPositions) { Connector = connector };
 
-				var waitHandle = new SyncObject();
+				//var waitHandle = new SyncObject();
 
-				//connector.UnderlyngMarketDataAdapter.StateChanged += () =>
+				//connector.MarketDataAdapter.StateChanged += () =>
 				//{
-				//	if (connector.UnderlyngMarketDataAdapter.State == EmulationStates.Started)
+				//	if (connector.MarketDataAdapter.State == EmulationStates.Started)
 				//		strategy.Start();
 
-				//	if (connector.UnderlyngMarketDataAdapter.State == EmulationStates.Stopped)
+				//	if (connector.MarketDataAdapter.State == EmulationStates.Stopped)
 				//	{
 				//		strategy.Stop();
 
@@ -476,7 +436,7 @@ namespace StockSharp.Algo.Strategies
 
 				//lock (waitHandle)
 				//{
-				//	if (connector.UnderlyngMarketDataAdapter.State != EmulationStates.Stopped)
+				//	if (connector.MarketDataAdapter.State != EmulationStates.Stopped)
 				//		waitHandle.Wait();
 				//}
 
@@ -587,13 +547,11 @@ namespace StockSharp.Algo.Strategies
 			{
 				Name = LocalizedStrings.Str1252 + " " + strategy;
 				Strategy.OrderRegistered += Activate;
-				Strategy.StopOrderRegistered += Activate;
 			}
 
 			protected override void DisposeManaged()
 			{
 				Strategy.OrderRegistered -= Activate;
-				Strategy.StopOrderRegistered -= Activate;
 				base.DisposeManaged();
 			}
 		}
@@ -605,13 +563,11 @@ namespace StockSharp.Algo.Strategies
 			{
 				Name = LocalizedStrings.Str1253 + " " + strategy;
 				Strategy.OrderChanged += Activate;
-				Strategy.StopOrderChanged += Activate;
 			}
 
 			protected override void DisposeManaged()
 			{
 				Strategy.OrderChanged -= Activate;
-				Strategy.StopOrderChanged -= Activate;
 				base.DisposeManaged();
 			}
 		}
@@ -962,7 +918,7 @@ namespace StockSharp.Algo.Strategies
 				throw new ArgumentNullException(nameof(rule));
 
 			if (!(rule.Container is Strategy strategy))
-				throw new ArgumentException(LocalizedStrings.Str1263Params.Put(rule.Name), nameof(rule));
+				throw new ArgumentException(LocalizedStrings.Str1263Params.Put(rule), nameof(rule));
 
 			return strategy;
 		}
@@ -980,7 +936,7 @@ namespace StockSharp.Algo.Strategies
 
 			return new StrategyTypeMessage
 			{
-				StrategyTypeId = strategyType.GUID,
+				StrategyTypeId = strategyType.GetTypeName(false),
 				StrategyName = strategyType.Name,
 				OriginalTransactionId = transactionId,
 			};

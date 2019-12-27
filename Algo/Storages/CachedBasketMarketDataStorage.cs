@@ -24,7 +24,7 @@ namespace StockSharp.Algo.Storages
 	public class CachedBasketMarketDataStorage<T> : BaseLogReceiver, IEnumerator<T>
 		where T : Message
 	{
-		private readonly MessagePriorityQueue _messageQueue = new MessagePriorityQueue();
+		private readonly MessageByLocalTimeQueue _messageQueue = new MessageByLocalTimeQueue();
 		private readonly List<Tuple<IMarketDataStorage, long>> _actions = new List<Tuple<IMarketDataStorage, long>>();
 		private readonly SyncObject _moveNextSyncRoot = new SyncObject();
 		private readonly SyncObject _syncRoot = new SyncObject();
@@ -167,15 +167,12 @@ namespace StockSharp.Algo.Storages
 
 		#region IEnumerator<T>
 
-		/// <summary>
-		/// Advances the enumerator to the next element of the collection.
-		/// </summary>
-		/// <returns><see langword="true" /> if the enumerator was successfully advanced to the next element; <see langword="false" /> if the enumerator has passed the end of the collection.</returns>
+		/// <inheritdoc />
 		public bool MoveNext()
 		{
 			if (MarketTimeChangedInterval != TimeSpan.Zero && !_isTimeLineAdded)
 			{
-				AddStorage(new InMemoryMarketDataStorage<TimeMessage>(null, null, d => GetTimeLine(d, MarketTimeChangedInterval)), _transactionIdGenerator.GetNextId());
+				AddStorage(new InMemoryMarketDataStorage<TimeMessage>(SecurityId.All, null, d => GetTimeLine(d, MarketTimeChangedInterval)), _transactionIdGenerator.GetNextId());
 
 				_isTimeLineAdded = true;
 				_moveNextSyncRoot.WaitSignal();
@@ -209,9 +206,7 @@ namespace StockSharp.Algo.Storages
 			return true;
 		}
 
-		/// <summary>
-		/// Sets the enumerator to its initial position, which is before the first element in the collection.
-		/// </summary>
+		/// <inheritdoc />
 		public void Reset()
 		{
 			Current = null;
@@ -220,9 +215,7 @@ namespace StockSharp.Algo.Storages
             _basketStorage.InnerStorages.Clear();
 		}
 
-		/// <summary>
-		/// Gets the current element in the collection.
-		/// </summary>
+		/// <inheritdoc />
 		public T Current { get; private set; }
 
 		object IEnumerator.Current => Current;

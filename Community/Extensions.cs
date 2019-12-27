@@ -73,9 +73,9 @@ namespace StockSharp.Community
 				
 				// license error codes
 				case ErrorCodes.LicenseRejected:
-					throw new InvalidOperationException(LocalizedStrings.LicenseRevoked);
+					throw new InvalidOperationException(LocalizedStrings.LicenseRevoked.Put(args));
 				case ErrorCodes.LicenseMaxRenew:
-					throw new InvalidOperationException(LocalizedStrings.LicenseMaxRenew);
+					throw new InvalidOperationException(LocalizedStrings.LicenseMaxRenew.Put(args));
 				case ErrorCodes.ClientNotApproved:
 					throw new InvalidOperationException(LocalizedStrings.SmsActivationFailed);
 				case ErrorCodes.TooMuchFrequency:
@@ -108,6 +108,10 @@ namespace StockSharp.Community
 					throw new InvalidOperationException(LocalizedStrings.FileTooMuch);
 				case ErrorCodes.FileNotExist:
 					throw new InvalidOperationException(LocalizedStrings.Str1575);
+
+				case ErrorCodes.Suspicious:
+					throw new InvalidOperationException(LocalizedStrings.SuspiciousAction);
+
 				default:
 					throw new InvalidOperationException(LocalizedStrings.UnknownServerErrorCode.Put(code));
 			}

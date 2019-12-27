@@ -13,7 +13,7 @@
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WarningLevel>4</WarningLevel>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
     <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -41,23 +41,23 @@
     <ApplicationIcon>..\..\..\References\stocksharp.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="DevExpress.Data.v18.1">
-      <HintPath>..\..\..\References\DevExpress.Data.v18.1.dll</HintPath>
+    <Reference Include="DevExpress.Data.v19.2">
+      <HintPath>..\..\..\References\DevExpress.Data.v19.2.dll</HintPath>
     </Reference>
-    <Reference Include="DevExpress.Xpf.Core.v18.1">
-      <HintPath>..\..\..\References\DevExpress.Xpf.Core.v18.1.dll</HintPath>
+    <Reference Include="DevExpress.Xpf.Core.v19.2">
+      <HintPath>..\..\..\References\DevExpress.Xpf.Core.v19.2.dll</HintPath>
     </Reference>
-    <Reference Include="DevExpress.Xpf.Themes.MetropolisDark.v18.1">
-      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.MetropolisDark.v18.1.dll</HintPath>
+    <Reference Include="DevExpress.Xpf.Themes.MetropolisDark.v19.2">
+      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.MetropolisDark.v19.2.dll</HintPath>
     </Reference>
-    <Reference Include="DevExpress.Xpf.Themes.MetropolisLight.v18.1">
-      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.MetropolisLight.v18.1.dll</HintPath>
+    <Reference Include="DevExpress.Xpf.Themes.MetropolisLight.v19.2">
+      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.MetropolisLight.v19.2.dll</HintPath>
     </Reference>
-    <Reference Include="DevExpress.Xpf.Themes.Office2016Black.v18.1">
-      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.Office2016Black.v18.1.dll</HintPath>
+    <Reference Include="DevExpress.Xpf.Themes.Office2016Black.v19.2">
+      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.Office2016Black.v19.2.dll</HintPath>
     </Reference>
-    <Reference Include="DevExpress.Xpf.Themes.Office2016White.v18.1">
-      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.Office2016White.v18.1.dll</HintPath>
+    <Reference Include="DevExpress.Xpf.Themes.Office2016White.v19.2">
+      <HintPath>..\..\..\References\DevExpress.Xpf.Themes.Office2016White.v19.2.dll</HintPath>
     </Reference>
     <Reference Include="Ecng.Backup">
       <HintPath>..\..\..\References\Ecng.Backup.dll</HintPath>
@@ -83,8 +83,8 @@
     <Reference Include="Ecng.Xaml.Charting">
       <HintPath>..\..\..\References\Ecng.Xaml.Charting.dll</HintPath>
     </Reference>
-    <Reference Include="MoreLinq">
-      <HintPath>..\..\..\References\MoreLinq.dll</HintPath>
+    <Reference Include="Ecng.Xaml.DevExp">
+      <HintPath>..\..\..\References\Ecng.Xaml.DevExp.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -97,9 +97,6 @@
     <Reference Include="WindowsBase" />
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
-    <Reference Include="Xceed.Wpf.Toolkit">
-      <HintPath>..\..\..\References\Xceed.Wpf.Toolkit.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml">

@@ -34,16 +34,6 @@
             Адаптер сообщений для Transaq.
             </summary>
     </member>
-    <member name="P:StockSharp.Transaq.TransaqMessageAdapter.CandleTimeFrames">
-      <summary>
-            Список доступных периодов свечей.
-            </summary>
-    </member>
-    <member name="E:StockSharp.Transaq.TransaqMessageAdapter.CandleTimeFramesInitialized">
-      <summary>
-            Событие инициализации поля <see cref="P:StockSharp.Transaq.TransaqMessageAdapter.CandleTimeFrames" />.
-            </summary>
-    </member>
     <member name="F:StockSharp.Transaq.TransaqMessageAdapter.MaxNewsHeaderCount">
       <summary>
             Максимально-допустимое количество заголовков новостей.
@@ -60,28 +50,11 @@
             Освободить занятые ресурсы.
             </summary>
     </member>
-    <member name="P:StockSharp.Transaq.TransaqMessageAdapter.TimeFrames">
-      <summary>
-            Возможные тайм-фреймы.
-            </summary>
-    </member>
-    <member name="M:StockSharp.Transaq.TransaqMessageAdapter.CreateOrderCondition">
-      <summary>
-            Создать для заявки типа <see cref="F:StockSharp.Messages.OrderTypes.Conditional" /> условие, которое поддерживается подключением.
-            </summary>
-      <returns>Условие для заявки. Если подключение не поддерживает заявки типа <see cref="F:StockSharp.Messages.OrderTypes.Conditional" />, то будет возвращено <see langword="null" />.</returns>
-    </member>
-    <member name="P:StockSharp.Transaq.TransaqMessageAdapter.IsSupportStopLoss">
-      <inheritdoc />
-    </member>
-    <member name="P:StockSharp.Transaq.TransaqMessageAdapter.IsSupportTakeProfit">
+    <member name="M:StockSharp.Transaq.TransaqMessageAdapter.GetTimeFrames(StockSharp.Messages.SecurityId,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
       <inheritdoc />
     </member>
     <member name="M:StockSharp.Transaq.TransaqMessageAdapter.OnSendInMessage(StockSharp.Messages.Message)">
-      <summary>
-            Отправить сообщение.
-            </summary>
-      <param name="message">Сообщение.</param>
+      <inheritdoc />
     </member>
     <member name="P:StockSharp.Transaq.TransaqMessageAdapter.Login">
       <summary>
@@ -154,22 +127,13 @@
             </summary>
     </member>
     <member name="M:StockSharp.Transaq.TransaqMessageAdapter.Save(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Сохранить настройки.
-            </summary>
-      <param name="storage">Хранилище настроек.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.Transaq.TransaqMessageAdapter.Load(Ecng.Serialization.SettingsStorage)">
-      <summary>
-            Загрузить настройки.
-            </summary>
-      <param name="storage">Хранилище настроек.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.Transaq.TransaqMessageAdapter.ToString">
-      <summary>
-            Получить строковое представление.
-            </summary>
-      <returns>Строковое представление.</returns>
+      <inheritdoc />
     </member>
     <member name="T:StockSharp.Transaq.TransaqOrderConditionTypes">
       <summary>
@@ -410,6 +374,18 @@
             До какого момента времени действительна.
             </summary>
     </member>
+    <member name="P:StockSharp.Transaq.TransaqOrderCondition.IsRepo">
+      <inheritdoc />
+    </member>
+    <member name="P:StockSharp.Transaq.TransaqOrderCondition.RepoInfo">
+      <inheritdoc />
+    </member>
+    <member name="P:StockSharp.Transaq.TransaqOrderCondition.IsNtm">
+      <inheritdoc />
+    </member>
+    <member name="P:StockSharp.Transaq.TransaqOrderCondition.NtmInfo">
+      <inheritdoc />
+    </member>
     <member name="T:StockSharp.Transaq.Proxy">
       <summary>
             Прокси.
@@ -548,31 +524,6 @@
     <member name="P:StockSharp.Transaq.TransaqTrader.OverrideDll">
       <summary>
             Перезаписать файл библиотеки из ресурсов. По-умолчанию файл будет перезаписан.
-            </summary>
-    </member>
-    <member name="P:StockSharp.Transaq.TransaqTrader.ConnectorVersion">
-      <summary>
-            Версия коннектора.
-            </summary>
-    </member>
-    <member name="P:StockSharp.Transaq.TransaqTrader.CurrentServer">
-      <summary>
-            Текущий сервер.
-            </summary>
-    </member>
-    <member name="P:StockSharp.Transaq.TransaqTrader.ServerTimeDiff">
-      <summary>
-            Разница между локальным и серверным временем.
-            </summary>
-    </member>
-    <member name="P:StockSharp.Transaq.TransaqTrader.CandleTimeFrames">
-      <summary>
-            Список доступных периодов свечей.
-            </summary>
-    </member>
-    <member name="E:StockSharp.Transaq.TransaqTrader.CandleTimeFramesInitialized">
-      <summary>
-            Событие инициализации поля <see cref="P:StockSharp.Transaq.TransaqTrader.CandleTimeFrames" />.
             </summary>
     </member>
   </members>

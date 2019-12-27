@@ -20,6 +20,8 @@ namespace StockSharp.Messages
 	using System.ComponentModel.DataAnnotations;
 	using System.Runtime.Serialization;
 
+	using Ecng.Common;
+
 	using StockSharp.Localization;
 
 	/// <summary>
@@ -105,6 +107,13 @@ namespace StockSharp.Messages
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.RenkoCandleKey)]
 		CandleRenko,
+
+		/// <summary>
+		/// Board info.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.BoardInfoKey)]
+		Board,
 	}
 
 	/// <summary>
@@ -141,20 +150,16 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class MarketDataMessage : SecurityMessage
+	public class MarketDataMessage : SecurityMessage, ISubscriptionMessage
 	{
-		/// <summary>
-		/// Start date, from which data needs to be retrieved.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.Str343Key)]
 		[DescriptionLoc(LocalizedStrings.Str344Key)]
 		[MainCategory]
 		public DateTimeOffset? From { get; set; }
 
-		/// <summary>
-		/// End date, until which data needs to be retrieved.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.Str345Key)]
 		[DescriptionLoc(LocalizedStrings.Str346Key)]
@@ -177,29 +182,13 @@ namespace StockSharp.Messages
 		[MainCategory]
 		public object Arg { get; set; }
 
-		/// <summary>
-		/// The message is market-data subscription.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		public bool IsSubscribe { get; set; }
 
-		/// <summary>
-		/// Request identifier.
-		/// </summary>
+		/// <inheritdoc />
 		[DataMember]
 		public long TransactionId { get; set; }
-
-		/// <summary>
-		/// The message is not supported by adapter. To be set if the answer.
-		/// </summary>
-		[DataMember]
-		public bool IsNotSupported { get; set; }
-
-		/// <summary>
-		/// Subscribe or unsubscribe error info. To be set if the answer.
-		/// </summary>
-		[DataMember]
-		public Exception Error { get; set; }
 
 		/// <summary>
 		/// Market-data count.
@@ -253,21 +242,22 @@ namespace StockSharp.Messages
 		public bool AllowBuildFromSmallerTimeFrame { get; set; } = true;
 
 		/// <summary>
-		/// Request history market data only.
-		/// </summary>
-		[DataMember]
-		public bool IsHistory { get; set; }
-
-		/// <summary>
 		/// Use only the regular trading hours for which data will be requested.
 		/// </summary>
 		[DataMember]
 		public bool IsRegularTradingHours { get; set; }
 
 		/// <summary>
-		/// The default depth of order book.
+		/// Request <see cref="CandleStates.Finished"/> only candles.
 		/// </summary>
-		public const int DefaultMaxDepth = 50;
+		[DataMember]
+		public bool IsFinished { get; set; }
+
+		/// <summary>
+		/// Board code.
+		/// </summary>
+		[DataMember]
+		public string BoardCode { get; set; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MarketDataMessage"/>.
@@ -292,38 +282,51 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			var clone = new MarketDataMessage
-			{
-				Arg = Arg,
-				DataType = DataType,
-				Error = Error,
-				From = From,
-				To = To,
-				IsSubscribe = IsSubscribe,
-				TransactionId = TransactionId,
-				Count = Count,
-				MaxDepth = MaxDepth,
-				NewsId = NewsId,
-				LocalTime = LocalTime,
-				IsNotSupported = IsNotSupported,
-				BuildMode = BuildMode,
-				BuildFrom = BuildFrom,
-				BuildField = BuildField,
-				IsCalcVolumeProfile = IsCalcVolumeProfile,
-				IsHistory = IsHistory,
-				AllowBuildFromSmallerTimeFrame = AllowBuildFromSmallerTimeFrame,
-				IsRegularTradingHours = IsRegularTradingHours,
-			};
-
+			var clone = new MarketDataMessage();
 			CopyTo(clone);
-
 			return clone;
+		}
+
+		/// <summary>
+		/// Copy the message into the <paramref name="destination" />.
+		/// </summary>
+		/// <param name="destination">The object, to which copied information.</param>
+		public void CopyTo(MarketDataMessage destination)
+		{
+			base.CopyTo(destination);
+
+			destination.Arg = Arg;
+			destination.DataType = DataType;
+			destination.From = From;
+			destination.To = To;
+			destination.IsSubscribe = IsSubscribe;
+			destination.TransactionId = TransactionId;
+			destination.Count = Count;
+			destination.MaxDepth = MaxDepth;
+			destination.NewsId = NewsId;
+			destination.BuildMode = BuildMode;
+			destination.BuildFrom = BuildFrom;
+			destination.BuildField = BuildField;
+			destination.IsCalcVolumeProfile = IsCalcVolumeProfile;
+			destination.AllowBuildFromSmallerTimeFrame = AllowBuildFromSmallerTimeFrame;
+			destination.IsRegularTradingHours = IsRegularTradingHours;
+			destination.IsFinished = IsFinished;
+			destination.BoardCode = BoardCode;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			var str = base.ToString() + $",Sec={SecurityId},Type={DataType},IsSubscribe={IsSubscribe},Arg={Arg},TransId={TransactionId},OrigId={OriginalTransactionId}";
+			var str = base.ToString() + $",Sec={SecurityId},Type={DataType},IsSubscribe={IsSubscribe}";
+
+			if (Arg != null)
+				str += $",Arg={Arg}";
+
+			if (TransactionId != default)
+				str += $",TransId={TransactionId}";
+
+			if (OriginalTransactionId != default)
+				str += $",OrigId={OriginalTransactionId}";
 
 			if (MaxDepth != null)
 				str += $",MaxDepth={MaxDepth}";
@@ -344,16 +347,16 @@ namespace StockSharp.Messages
 				str += $",SmallTF={AllowBuildFromSmallerTimeFrame}";
 
 			if (IsRegularTradingHours)
-				str += $",RegularTH={IsRegularTradingHours}";
+				str += $",RTH={IsRegularTradingHours}";
 
-			if (IsHistory)
-				str += $",Hist={IsHistory}";
+			if (IsFinished)
+				str += $",Fin={IsFinished}";
 
 			if (IsCalcVolumeProfile)
 				str += $",Profile={IsCalcVolumeProfile}";
 
-			if (Error != null)
-				str += $",Error={Error.Message}";
+			if (!BoardCode.IsEmpty())
+				str += $",BoardCode={BoardCode}";
 
 			return str;
 		}

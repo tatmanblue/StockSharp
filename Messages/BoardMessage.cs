@@ -17,6 +17,7 @@ namespace StockSharp.Messages
 {
 	using System;
 	using System.Runtime.Serialization;
+	using System.Xml.Serialization;
 
 	using StockSharp.Localization;
 
@@ -25,7 +26,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class BoardMessage : Message
+	public class BoardMessage : BaseSubscriptionIdMessage
 	{
 		/// <summary>
 		/// Exchange code, which owns the board. Maybe be the same <see cref="Code"/>.
@@ -44,12 +45,6 @@ namespace StockSharp.Messages
 		[DescriptionLoc(LocalizedStrings.BoardCodeKey, true)]
 		[MainCategory]
 		public string Code { get; set; }
-
-		/// <summary>
-		/// ID of the original message <see cref="BoardLookupMessage.TransactionId"/> for which this message is a response.
-		/// </summary>
-		[DataMember]
-		public long OriginalTransactionId { get; set; }
 
 		///// <summary>
 		///// Gets a value indicating whether the re-registration orders via <see cref="OrderReplaceMessage"/> as a single transaction.
@@ -112,6 +107,8 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.TimeZoneKey)]
 		[DescriptionLoc(LocalizedStrings.Str68Key)]
 		[MainCategory]
+		[XmlIgnore]
+		[Ecng.Serialization.TimeZoneInfo]
 		public TimeZoneInfo TimeZone
 		{
 			get => _timeZone;
@@ -141,7 +138,7 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			return new BoardMessage
+			var clone = new BoardMessage
 			{
 				Code = Code,
 				ExchangeCode = ExchangeCode,
@@ -150,8 +147,11 @@ namespace StockSharp.Messages
 				//IsSupportMarketOrders = IsSupportMarketOrders,
 				WorkingTime = WorkingTime.Clone(),
 				TimeZone = TimeZone,
-				OriginalTransactionId = OriginalTransactionId,
 			};
+
+			CopyTo(clone);
+
+			return clone;
 		}
 
 		/// <inheritdoc />

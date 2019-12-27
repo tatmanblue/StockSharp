@@ -139,7 +139,7 @@ namespace StockSharp.BusinessEntities
 			Description = LocalizedStrings.Str360Key,
 			GroupName = LocalizedStrings.GeneralKey,
 			Order = 3)]
-		public SecurityTypes? Type
+		public virtual SecurityTypes? Type
 		{
 			get => _type;
 			set
@@ -337,6 +337,36 @@ namespace StockSharp.BusinessEntities
 			}
 		}
 
+		private decimal? _minVolume;
+
+		/// <summary>
+		/// Minimum volume allowed in order.
+		/// </summary>
+		[DataMember]
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.MinVolumeKey,
+			Description = LocalizedStrings.MinVolumeDescKey,
+			GroupName = LocalizedStrings.GeneralKey,
+			Order = 10)]
+		[Nullable]
+		//[GreaterThanZero]
+		public decimal? MinVolume
+		{
+			get => _minVolume;
+			set
+			{
+				if (_minVolume == value)
+					return;
+
+				if (value < 0)
+					throw new ArgumentOutOfRangeException(nameof(value), value, LocalizedStrings.Str1219);
+
+				_minVolume = value;
+				Notify(nameof(MinVolume));
+			}
+		}
+
 		private decimal? _multiplier;
 
 		/// <summary>
@@ -473,15 +503,35 @@ namespace StockSharp.BusinessEntities
 			}
 		}
 
+		private decimal? _faceValue;
+
+		/// <summary>
+		/// Face value.
+		/// </summary>
+		[DataMember]
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.FaceValueKey,
+			Description = LocalizedStrings.FaceValueDescKey,
+			GroupName = LocalizedStrings.GeneralKey,
+			Order = 16)]
+		public decimal? FaceValue
+		{
+			get => _faceValue;
+			set
+			{
+				if (_faceValue == value)
+					return;
+
+				_faceValue = value;
+				Notify(nameof(FaceValue));
+			}
+		}
+
 		[field: NonSerialized]
 		private SynchronizedDictionary<string, object> _extensionInfo;
 
-		/// <summary>
-		/// Extended security info.
-		/// </summary>
-		/// <remarks>
-		/// Required if additional information associated with the instrument is stored in the program. For example, the date of instrument expiration (if it is option) or information about the underlying asset if it is the futures contract.
-		/// </remarks>
+		/// <inheritdoc />
 		[XmlIgnore]
 		//[DataMember]
 		[Display(
@@ -1719,6 +1769,29 @@ namespace StockSharp.BusinessEntities
 			}
 		}
 
+		private bool? _shortable;
+		
+		/// <summary>
+		/// Can have short positions.
+		/// </summary>
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.ShortableKey,
+			Description = LocalizedStrings.ShortableDescKey,
+			GroupName = LocalizedStrings.GeneralKey,
+			Order = 22)]
+		[DataMember]
+		[Nullable]
+		public bool? Shortable
+		{
+			get => _shortable;
+			set
+			{
+				_shortable = value;
+				Notify(nameof(Shortable));
+			}
+		}
+
 		private SecurityTypes? _underlyingSecurityType;
 
 		/// <summary>
@@ -1739,6 +1812,29 @@ namespace StockSharp.BusinessEntities
 			{
 				_underlyingSecurityType = value;
 				Notify(nameof(UnderlyingSecurityType));
+			}
+		}
+
+		private decimal? _underlyingSecurityMinVolume;
+
+		/// <summary>
+		/// Minimum volume allowed in order for underlying security.
+		/// </summary>
+		[Display(
+			ResourceType = typeof(LocalizedStrings),
+			Name = LocalizedStrings.UnderlyingMinVolumeKey,
+			Description = LocalizedStrings.UnderlyingMinVolumeDescKey,
+			GroupName = LocalizedStrings.Str437Key,
+			Order = 104)]
+		[DataMember]
+		[Nullable]
+		public decimal? UnderlyingSecurityMinVolume
+		{
+			get => _underlyingSecurityMinVolume;
+			set
+			{
+				_underlyingSecurityMinVolume = value;
+				Notify(nameof(UnderlyingSecurityMinVolume));
 			}
 		}
 
@@ -1877,6 +1973,7 @@ namespace StockSharp.BusinessEntities
 			destination.Class = Class;
 			destination.ShortName = ShortName;
 			destination.VolumeStep = VolumeStep;
+			destination.MinVolume = MinVolume;
 			destination.Multiplier = Multiplier;
 			destination.PriceStep = PriceStep;
 			destination.Decimals = Decimals;
@@ -1912,12 +2009,15 @@ namespace StockSharp.BusinessEntities
 			destination.IssueSize = IssueSize;
 			destination.IssueDate = IssueDate;
 			destination.UnderlyingSecurityType = UnderlyingSecurityType;
+			destination.UnderlyingSecurityMinVolume = UnderlyingSecurityMinVolume;
 			destination.BuyBackDate = BuyBackDate;
 			destination.BuyBackPrice = BuyBackPrice;
+			destination.Shortable = Shortable;
 			destination.BasketCode = BasketCode;
 			destination.BasketExpression = BasketExpression;
 			destination.CommissionTaker = CommissionTaker;
 			destination.CommissionMaker = CommissionMaker;
+			destination.FaceValue = FaceValue;
 
 			//if (destination.ExtensionInfo == null)
 			//	destination.ExtensionInfo = new SynchronizedDictionary<object, object>();

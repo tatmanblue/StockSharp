@@ -49,6 +49,31 @@
             InitializeComponent
             </summary>
     </member>
+    <member name="T:StockSharp.Alerts.AlertHelper">
+      <summary>
+            Extension class.
+            </summary>
+    </member>
+    <member name="P:StockSharp.Alerts.AlertHelper.NotificationService">
+      <summary>
+            Alert notification service.
+            </summary>
+    </member>
+    <member name="P:StockSharp.Alerts.AlertHelper.TryNotificationService">
+      <summary>
+            Alert notification service.
+            </summary>
+    </member>
+    <member name="P:StockSharp.Alerts.AlertHelper.ProcessingService">
+      <summary>
+            Alert processing service.
+            </summary>
+    </member>
+    <member name="P:StockSharp.Alerts.AlertHelper.TryProcessingService">
+      <summary>
+            Alert processing service.
+            </summary>
+    </member>
     <member name="T:StockSharp.Alerts.AlertMessageTypePickerWindow">
       <summary>
             Message type picker window.
@@ -174,7 +199,8 @@
       <inheritdoc />
     </member>
     <member name="M:StockSharp.Alerts.AlertRuleField.GetHashCode">
-      <inheritdoc />
+      <summary>Serves as a hash function for a particular type. </summary>
+      <returns>A hash code for the current <see cref="T:System.Object" />.</returns>
     </member>
     <member name="M:StockSharp.Alerts.AlertRuleField.OnEquals(StockSharp.Alerts.AlertRuleField)">
       <summary>
@@ -265,13 +291,7 @@
       <param name="dumpDir">Temp files directory.</param>
     </member>
     <member name="M:StockSharp.Alerts.AlertNotificationService.Notify(StockSharp.Alerts.AlertNotifications,System.String,System.String,System.DateTimeOffset)">
-      <summary>
-            Add alert at the output.
-            </summary>
-      <param name="type">Alert type.</param>
-      <param name="caption">Signal header.</param>
-      <param name="message">Alert text.</param>
-      <param name="time">Creation time.</param>
+      <inheritdoc />
     </member>
     <member name="M:StockSharp.Alerts.AlertNotificationService.DisposeManaged">
       <summary>
