@@ -19,10 +19,9 @@ namespace StockSharp.Configuration
 	using System.IO;
 	using System.Linq;
 
+	using Ecng.ComponentModel;
 	using Ecng.Configuration;
 	using Ecng.Serialization;
-
-	using StockSharp.Community;
 
 	/// <summary>
 	/// Extension class.
@@ -109,6 +108,8 @@ namespace StockSharp.Configuration
 
 			if (!savePassword)
 				clone.Password = null;
+
+			Directory.CreateDirectory(Paths.CompanyPath);
 
 			var file = Path.Combine(Paths.CompanyPath, _credentialsFile);
 

@@ -7,6 +7,7 @@ namespace StockSharp.Community
 	/// The file data.
 	/// </summary>
 	[DataContract]
+	[Obsolete]
 	public class FileData
 	{
 		/// <summary>
@@ -44,6 +45,12 @@ namespace StockSharp.Community
 		/// </summary>
 		[DataMember]
 		public string Url { get; set; }
+
+		/// <summary>
+		/// File hash.
+		/// </summary>
+		[DataMember]
+		public string Hash { get; set; }
 
 		/// <summary>
 		/// Date of creation.

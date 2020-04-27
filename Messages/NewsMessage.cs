@@ -55,7 +55,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[Serializable]
 	[DataContract]
-	public class NewsMessage : BaseSubscriptionIdMessage, IServerTimeMessage, INullableSecurityIdMessage
+	public class NewsMessage : BaseSubscriptionIdMessage<NewsMessage>, IServerTimeMessage, INullableSecurityIdMessage
 	{
 		/// <summary>
 		/// News ID.
@@ -140,6 +140,18 @@ namespace StockSharp.Messages
 		public NewsPriorities? Priority { get; set; }
 
 		/// <summary>
+		/// Language.
+		/// </summary>
+		[DataMember]
+		public string Language { get; set; }
+
+		/// <summary>
+		/// Expiration date.
+		/// </summary>
+		[DataMember]
+		public DateTimeOffset? ExpiryDate { get; set; }
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="NewsMessage"/>.
 		/// </summary>
 		public NewsMessage()
@@ -150,31 +162,25 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Sec={SecurityId},Head={Headline}";
+			return base.ToString() + $",Time={ServerTime:yyyy/MM/dd HH:mm:ss},Sec={SecurityId},Head={Headline}";
 		}
 
-		/// <summary>
-		/// Create a copy of <see cref="NewsMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
+		/// <inheritdoc />
+		public override void CopyTo(NewsMessage destination)
 		{
-			var clone = new NewsMessage
-			{
-				Id = Id,
-				BoardCode = BoardCode,
-				SecurityId = SecurityId,
-				Source = Source,
-				Headline = Headline,
-				Story = Story,
-				ServerTime = ServerTime,
-				Url = Url,
-				Priority = Priority,
-			};
-
-			CopyTo(clone);
-
-			return clone;
+			base.CopyTo(destination);
+			
+			destination.Id = Id;
+			destination.BoardCode = BoardCode;
+			destination.SecurityId = SecurityId;
+			destination.Source = Source;
+			destination.Headline = Headline;
+			destination.Story = Story;
+			destination.ServerTime = ServerTime;
+			destination.Url = Url;
+			destination.Priority = Priority;
+			destination.Language = Language;
+			destination.ExpiryDate = ExpiryDate;
 		}
 	}
 }

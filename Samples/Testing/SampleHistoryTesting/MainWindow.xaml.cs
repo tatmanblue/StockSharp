@@ -59,7 +59,7 @@ namespace SampleHistoryTesting
 
 		private readonly List<ProgressBar> _progressBars = new List<ProgressBar>();
 		private readonly List<CheckBox> _checkBoxes = new List<CheckBox>();
-		private readonly List<HistoryEmulationConnector> _connectors = new List<HistoryEmulationConnector>();
+		private readonly CachedSynchronizedList<HistoryEmulationConnector> _connectors = new CachedSynchronizedList<HistoryEmulationConnector>();
 		
 		private DateTime _startEmulationTime;
 		private ChartCandleElement _candlesElem;
@@ -76,7 +76,7 @@ namespace SampleHistoryTesting
 		{
 			InitializeComponent();
 
-			HistoryPath.Folder = @"..\..\..\HistoryData\".ToFullPath();
+			HistoryPath.Folder = StockSharp.Samples.HistoryDataHelper.DataPath;
 
 			if (LocalizedStrings.ActiveLanguage == Languages.Russian)
 			{
@@ -130,7 +130,7 @@ namespace SampleHistoryTesting
 		{
 			if (_connectors.Count > 0)
 			{
-				foreach (var connector in _connectors)
+				foreach (var connector in _connectors.Cache)
 					connector.Start();
 
 				return;
@@ -340,7 +340,7 @@ namespace SampleHistoryTesting
 
 			// (ru only) ОЛ необходимо загружать с 18.45 пред дня, чтобы стаканы строились правильно
 			if (OrderLogCheckBox.IsChecked == true)
-				startTime = startTime.Subtract(TimeSpan.FromDays(1)).AddHours(18).AddMinutes(45).AddTicks(1).ApplyTimeZone(TimeHelper.Moscow).UtcDateTime;
+				startTime = startTime.Subtract(TimeSpan.FromDays(1)).AddHours(18).AddMinutes(45).AddTicks(1).ApplyMoscow().UtcDateTime;
 
 			// ProgressBar refresh step
 			var progressStep = ((stopTime - startTime).Ticks / 100).To<TimeSpan>();
@@ -382,7 +382,7 @@ namespace SampleHistoryTesting
 					SecurityId = secId,
 					ServerTime = startTime,
 				}
-				.TryAdd(Level1Fields.PriceStep, secCode == "RIZ2" ? 10m : 1)
+				.TryAdd(Level1Fields.PriceStep, secCode == "RIZ2" ? 10m : 0.05m)
 				.TryAdd(Level1Fields.StepPrice, 6m)
 				.TryAdd(Level1Fields.MinPrice, 10m)
 				.TryAdd(Level1Fields.MaxPrice, 1000000m)
@@ -400,15 +400,12 @@ namespace SampleHistoryTesting
 				{
 					EmulationAdapter =
 					{
-						Emulator =
+						Settings =
 						{
-							Settings =
-							{
-								// match order if historical price touched our limit order price. 
-								// It is terned off, and price should go through limit order price level
-								// (more "severe" test mode)
-								MatchOnTouch = false,
-							}
+							// match order if historical price touched our limit order price. 
+							// It is terned off, and price should go through limit order price level
+							// (more "severe" test mode)
+							MatchOnTouch = false,
 						}
 					},
 
@@ -483,12 +480,12 @@ namespace SampleHistoryTesting
 				if (emulationInfo.CustomHistoryAdapter != null)
 				{
 					connector.Adapter.InnerAdapters.Remove(connector.MarketDataAdapter);
-					connector.Adapter.InnerAdapters.Add(new CustomHistoryMessageAdapter(emulationInfo.CustomHistoryAdapter(connector.TransactionIdGenerator), secProvider));
+					connector.Adapter.InnerAdapters.Add(new EmulationMessageAdapter(emulationInfo.CustomHistoryAdapter(connector.TransactionIdGenerator), new MessageByLocalTimeQueue(), true));
 				}
 
 				// set history range
-				connector.HistoryMessageAdapterEx.StartDate = startTime;
-				connector.HistoryMessageAdapterEx.StopDate = stopTime;
+				connector.HistoryMessageAdapter.StartDate = startTime;
+				connector.HistoryMessageAdapter.StopDate = stopTime;
 
 				connector.NewSecurity += s =>
 				{
@@ -496,7 +493,7 @@ namespace SampleHistoryTesting
 						return;
 
 					// fill level1 values
-					connector.HistoryMessageAdapterEx.SendOutMessage(level1Info);
+					connector.EmulationAdapter.SendInMessage(level1Info);
 
 					if (emulationInfo.UseMarketDepth)
 					{
@@ -643,7 +640,6 @@ namespace SampleHistoryTesting
 
 					connector.NewMessage += message =>
 					{
-
 						if (message is QuoteChangeMessage quoteMsg)
 							MarketDepth.UpdateDepth(quoteMsg);
 					};
@@ -657,7 +653,7 @@ namespace SampleHistoryTesting
 			_startEmulationTime = DateTime.Now;
 
 			// start emulation
-			foreach (var connector in _connectors)
+			foreach (var connector in _connectors.Cache)
 			{
 				// raise NewSecurities and NewPortfolio for full fill strategy properties
 				connector.Connect();
@@ -682,7 +678,7 @@ namespace SampleHistoryTesting
 
 		private void StopBtnClick(object sender, RoutedEventArgs e)
 		{
-			foreach (var connector in _connectors)
+			foreach (var connector in _connectors.Cache)
 			{
 				connector.Disconnect();
 			}
@@ -690,7 +686,7 @@ namespace SampleHistoryTesting
 
 		private void PauseBtnClick(object sender, RoutedEventArgs e)
 		{
-			foreach (var connector in _connectors)
+			foreach (var connector in _connectors.Cache)
 			{
 				connector.Suspend();
 			}

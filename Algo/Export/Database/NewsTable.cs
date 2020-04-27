@@ -31,7 +31,11 @@ namespace StockSharp.Algo.Export.Database
 
 		private static IEnumerable<ColumnDescription> CreateColumns()
 		{
-			yield return new ColumnDescription(nameof(NewsMessage.Id)) { DbType = typeof(long) };
+			yield return new ColumnDescription(nameof(NewsMessage.Id))
+			{
+				DbType = typeof(string),
+				ValueRestriction = new StringRestriction(32),
+			};
 			yield return new ColumnDescription(nameof(NewsMessage.ServerTime)) { DbType = typeof(DateTimeOffset) };
 			yield return new ColumnDescription(nameof(NewsMessage.LocalTime)) { DbType = typeof(DateTimeOffset) };
 			yield return new ColumnDescription(nameof(SecurityId.SecurityCode))
@@ -68,6 +72,12 @@ namespace StockSharp.Algo.Export.Database
 			{
 				DbType = typeof(int?),
 			};
+			yield return new ColumnDescription(nameof(NewsMessage.Language))
+			{
+				DbType = typeof(string),
+				ValueRestriction = new StringRestriction(8)
+			};
+			yield return new ColumnDescription(nameof(NewsMessage.ExpiryDate)) { DbType = typeof(DateTimeOffset?) };
 		}
 
 		protected override IDictionary<string, object> ConvertToParameters(NewsMessage value)
@@ -84,6 +94,8 @@ namespace StockSharp.Algo.Export.Database
 				{ nameof(NewsMessage.Source), value.Source },
 				{ nameof(NewsMessage.Url), value.Url },
 				{ nameof(NewsMessage.Priority), value.Priority.To<int?>() },
+				{ nameof(NewsMessage.Language), value.Language },
+				{ nameof(NewsMessage.ExpiryDate), value.ExpiryDate },
 			};
 			return result;
 		}

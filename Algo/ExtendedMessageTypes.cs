@@ -1,5 +1,6 @@
 ﻿namespace StockSharp.Algo
 {
+	using StockSharp.Algo.Storages.Remote.Messages;
 	using StockSharp.Algo.Strategies.Messages;
 	using StockSharp.Algo.Testing;
 	using StockSharp.Messages;
@@ -9,12 +10,15 @@
 	/// </summary>
 	public static class ExtendedMessageTypes
 	{
-		internal const MessageTypes Last = (MessageTypes)(-1);
-
 		/// <summary>
-		/// <see cref="ClearingMessage"/>.
+		/// The last message identifier.
 		/// </summary>
-		public const MessageTypes Clearing = (MessageTypes)(-2);
+		public const MessageTypes Last = (MessageTypes)(-1);
+
+		///// <summary>
+		///// <see cref="ClearingMessage"/>.
+		///// </summary>
+		//public const MessageTypes Clearing = (MessageTypes)(-2);
 
 		/// <summary>
 		/// <see cref="EmulationStateMessage"/>.
@@ -53,11 +57,6 @@
 		public const MessageTypes StrategyLookup = (MessageTypes)(-15);
 
 		/// <summary>
-		/// <see cref="StrategyLookupResultMessage"/>.
-		/// </summary>
-		public const MessageTypes StrategyLookupResult = (MessageTypes)(-16);
-
-		/// <summary>
 		/// <see cref="StrategyInfoMessage"/>.
 		/// </summary>
 		public const MessageTypes StrategyInfo = (MessageTypes)(-17);
@@ -75,5 +74,25 @@
 		internal const MessageTypes ReconnectingStarted = (MessageTypes)(-20);
 
 		internal const MessageTypes PartialDownload = (MessageTypes)(-21);
+
+		/// <summary>
+		/// <see cref="RemoteFileMessage"/>.
+		/// </summary>
+		public const MessageTypes RemoteFile = (MessageTypes)(-22);
+
+		/// <summary>
+		/// <see cref="RemoteFileCommandMessage"/>.
+		/// </summary>
+		public const MessageTypes RemoteFileCommand = (MessageTypes)(-23);
+
+		/// <summary>
+		/// <see cref="StrategySubscriptionInfoMessage"/>.
+		/// </summary>
+		public const MessageTypes StrategySubscriptionInfo = (MessageTypes)(-24);
+
+		/// <summary>
+		/// <see cref="StrategyBacktestResultMessage"/>.
+		/// </summary>
+		public const MessageTypes StrategyBacktestResult = (MessageTypes)(-25);
 	}
 }

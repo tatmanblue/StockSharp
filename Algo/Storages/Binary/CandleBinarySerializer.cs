@@ -38,15 +38,15 @@ namespace StockSharp.Algo.Storages.Binary
 		{
 			base.Write(stream);
 
-			stream.Write(FirstPrice);
-			stream.Write(LastPrice);
+			stream.WriteEx(FirstPrice);
+			stream.WriteEx(LastPrice);
 
 			WriteFractionalVolume(stream);
 
 			if (Version < MarketDataVersions.Version50)
 				return;
 
-			stream.Write(ServerOffset);
+			stream.WriteEx(ServerOffset);
 
 			if (Version < MarketDataVersions.Version53)
 				return;
@@ -88,12 +88,9 @@ namespace StockSharp.Algo.Storages.Binary
 	class CandleBinarySerializer<TCandleMessage> : BinaryMarketDataSerializer<TCandleMessage, CandleMetaInfo>
 		where TCandleMessage : CandleMessage, new()
 	{
-		private readonly object _arg;
-
 		public CandleBinarySerializer(SecurityId securityId, object arg, IExchangeInfoProvider exchangeInfoProvider)
-			: base(securityId, 74, MarketDataVersions.Version58, exchangeInfoProvider)
+			: base(securityId, arg, 74, MarketDataVersions.Version58, exchangeInfoProvider)
 		{
-			_arg = arg ?? throw new ArgumentNullException(nameof(arg));
 		}
 
 		protected override void OnSave(BitArrayWriter writer, IEnumerable<TCandleMessage> candles, CandleMetaInfo metaInfo)
@@ -416,7 +413,7 @@ namespace StockSharp.Algo.Storages.Binary
 				SecurityId = SecurityId,
 				TotalVolume = reader.ReadVolume(metaInfo),
 				RelativeVolume = metaInfo.Version < MarketDataVersions.Version52 || !reader.Read() ? (decimal?)null : reader.ReadVolume(metaInfo),
-				Arg = _arg
+				Arg = Arg
 			};
 
 			var prevTime = metaInfo.FirstTime;

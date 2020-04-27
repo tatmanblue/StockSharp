@@ -21,7 +21,9 @@ namespace StockSharp.Messages
 	using System.ComponentModel.DataAnnotations;
 	using System.Linq;
 
+	using Ecng.Collections;
 	using Ecng.Common;
+	using Ecng.ComponentModel;
 	using Ecng.Interop;
 	using Ecng.Serialization;
 
@@ -53,6 +55,22 @@ namespace StockSharp.Messages
 				Categories = attr.Categories;
 		}
 
+		private IEnumerable<MessageTypes> CheckDuplicate(IEnumerable<MessageTypes> value, string propName)
+		{
+			if (value == null)
+				throw new ArgumentNullException(nameof(value));
+
+			var arr = value.ToArray();
+
+			var duplicate = arr.GroupBy(m => m).FirstOrDefault(g => g.Count() > 1);
+			if (duplicate != null)
+				throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
+
+			OnPropertyChanged(propName);
+
+			return arr;
+		}
+
 		private IEnumerable<MessageTypes> _supportedInMessages = Enumerable.Empty<MessageTypes>();
 
 		/// <inheritdoc />
@@ -60,19 +78,7 @@ namespace StockSharp.Messages
 		public virtual IEnumerable<MessageTypes> SupportedInMessages
 		{
 			get => _supportedInMessages;
-			set
-			{
-				if (value == null)
-					throw new ArgumentNullException(nameof(value));
-
-				var duplicate = value.GroupBy(m => m).FirstOrDefault(g => g.Count() > 1);
-				if (duplicate != null)
-					throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
-
-				_supportedInMessages = value.ToArray();
-
-				OnPropertyChanged(nameof(SupportedInMessages));
-			}
+			set => _supportedInMessages = CheckDuplicate(value, nameof(SupportedInMessages));
 		}
 
 		private IEnumerable<MessageTypes> _supportedOutMessages = Enumerable.Empty<MessageTypes>();
@@ -82,19 +88,17 @@ namespace StockSharp.Messages
 		public virtual IEnumerable<MessageTypes> SupportedOutMessages
 		{
 			get => _supportedOutMessages;
-			set
-			{
-				if (value == null)
-					throw new ArgumentNullException(nameof(value));
+			set => _supportedOutMessages = CheckDuplicate(value, nameof(SupportedOutMessages));
+		}
 
-				var duplicate = value.GroupBy(m => m).FirstOrDefault(g => g.Count() > 1);
-				if (duplicate != null)
-					throw new ArgumentException(LocalizedStrings.Str415Params.Put(duplicate.Key), nameof(value));
+		private IEnumerable<MessageTypes> _supportedResultMessages = Enumerable.Empty<MessageTypes>();
 
-				_supportedOutMessages = value.ToArray();
-
-				OnPropertyChanged(nameof(SupportedOutMessages));
-			}
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual IEnumerable<MessageTypes> SupportedResultMessages
+		{
+			get => _supportedResultMessages;
+			set => _supportedResultMessages = CheckDuplicate(value, nameof(SupportedResultMessages));
 		}
 
 		private IEnumerable<MessageTypeInfo> _possibleSupportedMessages = Enumerable.Empty<MessageTypeInfo>();
@@ -116,15 +120,15 @@ namespace StockSharp.Messages
 				_possibleSupportedMessages = value;
 				OnPropertyChanged(nameof(PossibleSupportedMessages));
 
-				SupportedInMessages = value.Select(t => t.Type).ToArray();
+				SupportedInMessages = value.Select(t => t.Type);
 			}
 		}
 
-		private IEnumerable<MarketDataTypes> _supportedMarketDataTypes = Enumerable.Empty<MarketDataTypes>();
+		private IEnumerable<DataType> _supportedMarketDataTypes = Enumerable.Empty<DataType>();
 
 		/// <inheritdoc />
 		[Browsable(false)]
-		public virtual IEnumerable<MarketDataTypes> SupportedMarketDataTypes
+		public virtual IEnumerable<DataType> SupportedMarketDataTypes
 		{
 			get => _supportedMarketDataTypes;
 			set
@@ -242,6 +246,14 @@ namespace StockSharp.Messages
 		public virtual bool HeartbeatBeforConnect => false;
 
 		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual Uri Icon => GetType().GetIconUrl();
+
+		/// <inheritdoc />
+		[Browsable(false)]
+		public virtual bool IsAutoReplyOnTransactonalUnsubscription => true;
+
+		/// <inheritdoc />
 		[CategoryLoc(LocalizedStrings.Str174Key)]
 		public ReConnectionSettings ReConnectionSettings { get; } = new ReConnectionSettings();
 
@@ -268,6 +280,14 @@ namespace StockSharp.Messages
 		{
 		}
 
+		void IMessageChannel.Suspend()
+		{
+		}
+
+		void IMessageChannel.Resume()
+		{
+		}
+
 		event Action IMessageChannel.StateChanged
 		{
 			add { }
@@ -275,7 +295,7 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		public void SendInMessage(Message message)
+		public bool SendInMessage(Message message)
 		{
 			if (message.Type == MessageTypes.Connect)
 			{
@@ -286,7 +306,7 @@ namespace StockSharp.Messages
 						Error = new InvalidOperationException(LocalizedStrings.Str169Params.Put(GetType().Name, Platform))
 					});
 
-					return;
+					return true;
 				}
 			}
 
@@ -294,7 +314,26 @@ namespace StockSharp.Messages
 
 			try
 			{
-				OnSendInMessage(message);
+				var result = OnSendInMessage(message);
+
+				if (IsAutoReplyOnTransactonalUnsubscription)
+				{
+					switch (message.Type)
+					{
+						case MessageTypes.PortfolioLookup:
+						case MessageTypes.OrderStatus:
+						{
+							var subscrMsg = (ISubscriptionMessage)message;
+
+							if (!subscrMsg.IsSubscribe)
+								SendOutMessage(new SubscriptionResponseMessage { OriginalTransactionId = subscrMsg.TransactionId });
+
+							break;
+						}
+					}
+				}
+
+				return result;
 			}
 			catch (Exception ex)
 			{
@@ -303,6 +342,8 @@ namespace StockSharp.Messages
 				message.HandleErrorResponse(ex, CurrentTime, SendOutMessage);
 
 				SendOutError(ex);
+
+				return false;
 			}
 		}
 
@@ -310,7 +351,8 @@ namespace StockSharp.Messages
 		/// Send message.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		protected abstract void OnSendInMessage(Message message);
+		/// <returns><see langword="true"/> if the specified message was processed successfully, otherwise, <see langword="false"/>.</returns>
+		protected abstract bool OnSendInMessage(Message message);
 
 		/// <summary>
 		/// Send outgoing message and raise <see cref="NewOutMessage"/> event.
@@ -334,8 +376,8 @@ namespace StockSharp.Messages
 
 			switch (message.Type)
 			{
-				case MessageTypes.TimeFrameLookupResult:
-					_timeFrames = ((TimeFrameLookupResultMessage)message).TimeFrames;
+				case MessageTypes.TimeFrameInfo:
+					_timeFrames.AddRange(((TimeFrameInfoMessage)message).TimeFrames);
 					break;
 			}
 
@@ -419,11 +461,38 @@ namespace StockSharp.Messages
 			SendOutMessage(originalTransactionId.CreateNotSupported());
 		}
 
+		/// <summary>
+		/// Initialize a new message <see cref="SubscriptionFinishedMessage"/> and pass it to the method <see cref="SendOutMessage"/>.
+		/// </summary>
+		/// <param name="originalTransactionId">ID of the original message for which this message is a response.</param>
+		protected void SendSubscriptionFinished(long originalTransactionId)
+		{
+			SendOutMessage(new SubscriptionFinishedMessage { OriginalTransactionId = originalTransactionId });
+		}
+
+		/// <summary>
+		/// Initialize a new message <see cref="SubscriptionOnlineMessage"/> and pass it to the method <see cref="SendOutMessage"/>.
+		/// </summary>
+		/// <param name="originalTransactionId">ID of the original message for which this message is a response.</param>
+		protected void SendSubscriptionOnline(long originalTransactionId)
+		{
+			SendOutMessage(new SubscriptionOnlineMessage { OriginalTransactionId = originalTransactionId });
+		}
+
+		/// <summary>
+		/// Initialize a new message <see cref="SubscriptionOnlineMessage"/> or <see cref="SubscriptionFinishedMessage"/> and pass it to the method <see cref="SendOutMessage"/>.
+		/// </summary>
+		/// <param name="message">Subscription.</param>
+		protected void SendSubscriptionResult(ISubscriptionMessage message)
+		{
+			SendOutMessage(message.CreateResult());
+		}
+
 		/// <inheritdoc />
 		public virtual IOrderLogMarketDepthBuilder CreateOrderLogMarketDepthBuilder(SecurityId securityId)
 			=> new OrderLogMarketDepthBuilder(securityId);
 
-		private IEnumerable<TimeSpan> _timeFrames = Enumerable.Empty<TimeSpan>();
+		private readonly HashSet<TimeSpan> _timeFrames = new HashSet<TimeSpan>();
 
 		/// <summary>
 		/// Get possible time-frames for the specified instrument.
@@ -445,31 +514,7 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		public virtual TimeSpan GetHistoryStepSize(DataType dataType, out TimeSpan iterationInterval)
-		{
-			if (dataType == null)
-				throw new ArgumentNullException(nameof(dataType));
-
-			iterationInterval = TimeSpan.FromSeconds(2);
-
-			if (dataType.IsCandles)
-			{
-				if (!this.IsMarketDataTypeSupported(dataType.ToMarketDataType().Value))
-					return TimeSpan.Zero;
-
-				if (dataType.MessageType == typeof(TimeFrameCandleMessage))
-				{
-					var tf = (TimeSpan)dataType.Arg;
-
-					if (tf.TotalDays <= 1)
-						return TimeSpan.FromDays(30);
-
-					return TimeSpan.MaxValue;
-				}
-			}
-
-			// by default adapter do not provide historical data except candles
-			return TimeSpan.Zero;
-		}
+			=> Extensions.GetHistoryStepSize(this, dataType, out iterationInterval);
 
 		/// <inheritdoc />
 		public virtual bool IsAllDownloadingSupported(DataType dataType) => false;
@@ -478,13 +523,28 @@ namespace StockSharp.Messages
 		public virtual bool IsSecurityRequired(DataType dataType) => true;
 
 		/// <inheritdoc />
+		[ReadOnly(false)]
+		public override string Name
+		{
+			get => base.Name;
+			set => base.Name = value;
+		}
+
+		/// <inheritdoc />
 		public override void Load(SettingsStorage storage)
 		{
 			Id = storage.GetValue(nameof(Id), Id);
 			HeartbeatInterval = storage.GetValue<TimeSpan>(nameof(HeartbeatInterval));
 
 			if (storage.ContainsKey(nameof(SupportedInMessages)) || storage.ContainsKey("SupportedMessages"))
-				SupportedInMessages = (storage.GetValue<string[]>(nameof(SupportedInMessages)) ?? storage.GetValue<string[]>("SupportedMessages")).Select(i => i.To<MessageTypes>()).ToArray();
+				SupportedInMessages = (storage.GetValue<string[]>(nameof(SupportedInMessages)) ?? storage.GetValue<string[]>("SupportedMessages")).Select(i =>
+				{
+					// TODO Remove few releases later 2020-02-26
+					if (i == "AdapterCommand")
+						i = "Command";
+
+					return i.To<MessageTypes>();
+				}).ToArray();
 			
 			if (storage.ContainsKey(nameof(ReConnectionSettings)))
 				ReConnectionSettings.Load(storage.GetValue<SettingsStorage>(nameof(ReConnectionSettings)));
@@ -531,7 +591,7 @@ namespace StockSharp.Messages
 		/// Raise <see cref="INotifyPropertyChanged.PropertyChanged"/> event.
 		/// </summary>
 		/// <param name="propertyName">The name of the property that changed.</param>
-		protected virtual void OnPropertyChanged(string propertyName)
+		protected void OnPropertyChanged(string propertyName)
 		{
 			_propertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 		}
@@ -552,9 +612,10 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			SendOutMessage(message);
+			return true;
 		}
 	}
 }

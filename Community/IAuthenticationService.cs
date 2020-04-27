@@ -31,6 +31,7 @@ namespace StockSharp.Community
 		/// <param name="password">Password.</param>
 		/// <returns>Session ID.</returns>
 		[OperationContract]
+		[Obsolete]
 		Guid Login(string email, string password);
 
 		/// <summary>
@@ -41,6 +42,7 @@ namespace StockSharp.Community
 		/// <param name="password">Password.</param>
 		/// <returns>Session ID.</returns>
 		[OperationContract]
+		[Obsolete]
 		Tuple<Guid, long> Login2(Products product, string email, string password);
 
 		/// <summary>
@@ -52,7 +54,29 @@ namespace StockSharp.Community
 		/// <param name="password">Password.</param>
 		/// <returns>Session ID.</returns>
 		[OperationContract]
+		[Obsolete]
 		Tuple<Guid, long> Login3(Products product, string version, string email, string password);
+
+		/// <summary>
+		/// To log in.
+		/// </summary>
+		/// <param name="productId">Product ID.</param>
+		/// <param name="version">Version.</param>
+		/// <param name="email">Email.</param>
+		/// <param name="password">Password.</param>
+		/// <returns>Session ID.</returns>
+		[OperationContract]
+		Tuple<Guid, long> Login4(long productId, string version, string email, string password);
+
+		/// <summary>
+		/// To log in.
+		/// </summary>
+		/// <param name="productId">Product ID.</param>
+		/// <param name="version">Version.</param>
+		/// <param name="token">Token.</param>
+		/// <returns>Session ID.</returns>
+		[OperationContract]
+		Tuple<Guid, long> Login5(long productId, string version, string token);
 
 		/// <summary>
 		/// Track the session is alive.

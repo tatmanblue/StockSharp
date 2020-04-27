@@ -11,6 +11,7 @@ namespace StockSharp.Algo.Storages.Remote
 
 	using Ecng.Collections;
 	using Ecng.Common;
+	using Ecng.ComponentModel;
 
 	using MoreLinq;
 
@@ -182,6 +183,7 @@ namespace StockSharp.Algo.Storages.Remote
 		}
 
 		/// <inheritdoc />
+		[CLSCompliant(false)]
 		protected override ChannelFactory<IRemoteStorage> CreateChannel()
 		{
 			var f = new ChannelFactory<IRemoteStorage>(new NetTcpBinding(SecurityMode.None)
@@ -620,7 +622,7 @@ namespace StockSharp.Algo.Storages.Remote
 			return Invoke(f => f.GetAvailableDataTypes(SessionId, securityId.ToStringId(nullIfEmpty: true), format))
 				.Select(t =>
 				{
-					var messageType = typeof(CandleMessage).To<string>().Replace(typeof(CandleMessage).Name, t.Item1).To<Type>();
+					var messageType = t.Item1.Contains(',') ? t.Item1.To<Type>() : typeof(CandleMessage).To<string>().Replace(typeof(CandleMessage).Name, t.Item1).To<Type>();
 					return DataType.Create(messageType, messageType.StringToMessageArg(t.Item2));
 				})
 				.ToArray();
@@ -631,7 +633,9 @@ namespace StockSharp.Algo.Storages.Remote
 		/// </summary>
 		public void Login()
 		{
-			_sessionId = base.Invoke(f => f.Login(Credentials.Email, Credentials.Password.UnSecure()));
+			var tuple = base.Invoke(f => f.Login4(Products.Hydra.FromEnum().Id, GetType().Assembly.GetName().Version.To<string>(), Credentials.Email, Credentials.Password.UnSecure()));
+			//tuple.Item1.ToErrorCode().ThrowIfError();
+			_sessionId = tuple.Item1;
 		}
 
 		/// <inheritdoc />

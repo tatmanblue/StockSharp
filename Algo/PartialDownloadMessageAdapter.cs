@@ -7,6 +7,7 @@
 	using Ecng.Collections;
 	using Ecng.Common;
 
+	using StockSharp.Logging;
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -79,7 +80,9 @@
 			private DateTimeOffset _currFrom;
 			private bool _firstIteration;
 			private DateTimeOffset _nextFrom;
-			private readonly DateTimeOffset _maxFrom;
+			private readonly DateTimeOffset _to;
+
+			private bool IsStepMax => _step == TimeSpan.MaxValue;
 
 			public DownloadInfo(PartialDownloadMessageAdapter adapter, MarketDataMessage origin, TimeSpan step, TimeSpan iterationInterval)
 			{
@@ -94,8 +97,8 @@
 				_step = step;
 				_iterationInterval = iterationInterval;
 
-				_maxFrom = origin.To ?? DateTimeOffset.Now;
-				_currFrom = origin.From ?? _maxFrom - step;
+				_to = origin.To ?? DateTimeOffset.Now;
+				_currFrom = origin.From ?? _to - (IsStepMax ? TimeSpan.FromDays(1) : step);
 
 				_firstIteration = true;
 			}
@@ -111,16 +114,16 @@
 				if (LastIteration)
 					throw new InvalidOperationException("LastIteration == true");
 
-				var mdMsg = (MarketDataMessage)Origin.Clone();
+				var mdMsg = Origin.TypedClone();
 
 				if (_firstIteration)
 				{
 					_firstIteration = false;
 
-					_nextFrom = _currFrom + _step;
+					_nextFrom = IsStepMax ? _to : _currFrom + _step;
 
-					if (_nextFrom > _maxFrom)
-						_nextFrom = _maxFrom;
+					if (_nextFrom > _to)
+						_nextFrom = _to;
 
 					mdMsg.TransactionId = _adapter.TransactionIdGenerator.GetNextId();
 					mdMsg.From = _currFrom;
@@ -132,7 +135,7 @@
 				{
 					_iterationInterval.Sleep();
 
-					if (Origin.To == null && _nextFrom >= _maxFrom)
+					if (Origin.To == null && _nextFrom >= _to)
 					{
 						// on-line
 						mdMsg.From = null;
@@ -142,8 +145,8 @@
 						_currFrom = _nextFrom;
 						_nextFrom += _step;
 
-						if (_nextFrom > _maxFrom)
-							_nextFrom = _maxFrom;
+						if (_nextFrom > _to)
+							_nextFrom = _to;
 
 						mdMsg.TransactionId = _adapter.TransactionIdGenerator.GetNextId();
 						mdMsg.From = _currFrom;
@@ -172,7 +175,7 @@
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			Message outMsg = null;
 
@@ -215,11 +218,7 @@
 								{
 									// finishing current history request
 
-									if (message.Type == MessageTypes.PortfolioLookup)
-									{
-										outMsg = message.Type.ToResultType().CreateLookupResult(subscriptionMsg.TransactionId);
-									}
-
+									outMsg = subscriptionMsg.CreateResult();
 									message = null;
 								}
 								else
@@ -280,7 +279,7 @@
 								}
 							}
 
-							var info = new DownloadInfo(this, (MarketDataMessage)mdMsg.Clone(), step, iterationInterval);
+							var info = new DownloadInfo(this, mdMsg.TypedClone(), step, iterationInterval);
 
 							message = info.InitNext();
 
@@ -289,6 +288,8 @@
 								_original.Add(info.Origin.TransactionId, info);
 								_partialRequests.Add(info.CurrTransId, info);
 							}
+
+							this.AddInfoLog("Downloading {0}/{1}: {2}-{3}", mdMsg.SecurityId, mdMsg.DataType, mdMsg.From, mdMsg.To);
 						}
 						else
 						{
@@ -315,10 +316,12 @@
 				{
 					var partialMsg = (PartialDownloadMessage)message;
 
+					MarketDataMessage mdMsg;
+
 					lock (_syncObject)
 					{
 						if (!_original.TryGetValue(partialMsg.OriginalTransactionId, out var info))
-							return;
+							return false;
 
 						if (info.UnsubscribingId != null)
 						{
@@ -327,7 +330,7 @@
 							break;
 						}
 
-						var mdMsg = info.InitNext();
+						mdMsg = info.InitNext();
 
 						if (mdMsg.To == null)
 						{
@@ -342,15 +345,21 @@
 						message = mdMsg;
 					}
 
+					this.AddInfoLog("Downloading {0}/{1}: {2}-{3}", mdMsg.SecurityId, mdMsg.DataType, mdMsg.From, mdMsg.To);
+
 					break;
 				}
 			}
+
+			var result = true;
 			
 			if (message != null)
-				base.OnSendInMessage(message);
+				result = base.OnSendInMessage(message);
 
 			if (outMsg != null)
 				RaiseNewOutMessage(outMsg);
+
+			return result;
 		}
 
 		/// <inheritdoc />
@@ -360,41 +369,6 @@
 
 			switch (message.Type)
 			{
-				case MessageTypes.PortfolioLookupResult:
-				case MessageTypes.OrderStatus:
-				{
-					var responseMsg = (IOriginalTransactionIdMessage)message;
-					var originId = responseMsg.OriginalTransactionId;
-
-					lock (_syncObject)
-					{
-						if (_liveRequests.TryGetAndRemove(originId, out var isPartial))
-						{
-							if (isPartial)
-							{
-								if (((IErrorMessage)responseMsg).Error == null)
-								{
-									// reply was sent prev for first partial request,
-									// now sending "online" message
-									message = new SubscriptionOnlineMessage
-									{
-										OriginalTransactionId = originId
-									};
-								}
-							}
-							else
-							{
-								extra = new SubscriptionOnlineMessage
-								{
-									OriginalTransactionId = originId
-								};
-							}
-						}
-					}
-
-					break;
-				}
-
 				case MessageTypes.SubscriptionResponse:
 				{
 					var responseMsg = (SubscriptionResponseMessage)message;
@@ -406,21 +380,24 @@
 						{
 							if (responseMsg.IsOk())
 							{
-								if (isPartial)
+								if (!this.IsOutMessageSupported(MessageTypes.SubscriptionOnline))
 								{
-									// reply was sent prev for first partial request,
-									// now sending "online" message
-									message = new SubscriptionOnlineMessage
+									if (isPartial)
 									{
-										OriginalTransactionId = originId
-									};
-								}
-								else
-								{
-									extra = new SubscriptionOnlineMessage
+										// reply was sent previously for the first partial request,
+										// now sending "online" message
+										message = new SubscriptionOnlineMessage
+										{
+											OriginalTransactionId = originId
+										};
+									}
+									else
 									{
-										OriginalTransactionId = originId
-									};
+										extra = new SubscriptionOnlineMessage
+										{
+											OriginalTransactionId = originId
+										};
+									}
 								}
 							}
 
@@ -429,11 +406,6 @@
 
 						if (!_partialRequests.TryGetValue(originId, out var info))
 							break;
-						
-						if (info.ReplyReceived)
-							return;
-
-						info.ReplyReceived = true;
 
 						var requestId = info.Origin.TransactionId;
 
@@ -441,7 +413,19 @@
 						{
 							_original.Remove(requestId);
 							_partialRequests.RemoveWhere(p => p.Value == info);
+
+							if (info.ReplyReceived)
+							{
+								// unexpected subscription stop
+								responseMsg.OriginalTransactionId = requestId;
+								break;
+							}
 						}
+						
+						if (info.ReplyReceived)
+							return;
+
+						info.ReplyReceived = true;
 						
 						responseMsg.OriginalTransactionId = requestId;
 					}
@@ -471,30 +455,18 @@
 								message = new PartialDownloadMessage { OriginalTransactionId = origin.TransactionId }.LoopBack(this);
 							}
 						}
+						else
+							break;
 					}
 
-					break;
-				}
+					this.AddInfoLog("Partial {0} finished.", finishMsg.OriginalTransactionId);
 
-				case MessageTypes.CandleTimeFrame:
-				case MessageTypes.CandlePnF:
-				case MessageTypes.CandleRange:
-				case MessageTypes.CandleRenko:
-				case MessageTypes.CandleTick:
-				case MessageTypes.CandleVolume:
-				{
-					TryUpdateSubscriptionResult((CandleMessage)message);
 					break;
 				}
 
 				case MessageTypes.Execution:
 				{
-					var execMsg = (ExecutionMessage)message;
-
-					if (!execMsg.IsMarketData())
-						break;
-
-					TryUpdateSubscriptionResult(execMsg);
+					TryUpdateSubscriptionResult((ExecutionMessage)message);
 					break;
 				}
 
@@ -507,6 +479,20 @@
 				case MessageTypes.QuoteChange:
 				{
 					TryUpdateSubscriptionResult((QuoteChangeMessage)message);
+					break;
+				}
+
+				case MessageTypes.PositionChange:
+				{
+					TryUpdateSubscriptionResult((PositionChangeMessage)message);
+					break;
+				}
+
+				default:
+				{
+					if (message is CandleMessage candleMsg)
+						TryUpdateSubscriptionResult(candleMsg);
+
 					break;
 				}
 			}
@@ -531,7 +517,9 @@
 					return;
 
 				info.TryUpdateNextFrom(message.ServerTime);
+
 				message.OriginalTransactionId = info.Origin.TransactionId;
+				message.SetSubscriptionIds(subscriptionId: info.Origin.TransactionId);
 			}
 		}
 
@@ -541,7 +529,7 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new PartialDownloadMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new PartialDownloadMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

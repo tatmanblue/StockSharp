@@ -70,6 +70,9 @@ namespace StockSharp.Community
 		FileTooMuch,
 		FileNotExist,
 
-		Suspicious
+		Suspicious,
+
+		InvalidDisplayName,
+		FileHashNotMatch,
 	}
 }

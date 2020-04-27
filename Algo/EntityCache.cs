@@ -103,8 +103,13 @@ namespace StockSharp.Algo
 
 				if (message.Balance != null)
 				{
-					if (order.Balance < message.Balance.Value)
-						_parent._logReceiver.AddErrorLog($"Order {order.TransactionId}: bal_old {order.Balance} -> bal_new {message.Balance.Value}");
+					var newBalance = message.Balance.Value;
+
+					if (newBalance < 0)
+						_parent._logReceiver.AddErrorLog($"Order {order.TransactionId}: balance {newBalance} < 0");
+
+					if (order.Balance < newBalance)
+						_parent._logReceiver.AddErrorLog($"Order {order.TransactionId}: bal_old {order.Balance} -> bal_new {newBalance}");
 
 					order.Balance = message.Balance.Value;
 				}
@@ -554,7 +559,12 @@ namespace StockSharp.Algo
 					o.MinVolume = message.MinVolume;
 
 					if (message.Balance != null)
+					{
+						if (message.Balance.Value < 0)
+							_logReceiver.AddErrorLog($"Order {transactionId}: balance {message.Balance.Value} < 0");
+
 						o.Balance = message.Balance.Value;
+					}
 					
 					if (message.PortfolioName.IsEmpty())
 						o.Portfolio = _portfolios.FirstOrDefault().Value;
@@ -845,6 +855,12 @@ namespace StockSharp.Algo
 
 			if (message.Priority != null)
 				news.Priority = message.Priority;
+
+			if (!message.Language.IsEmpty())
+				news.Language = message.Language;
+
+			if (message.ExpiryDate != null)
+				news.ExpiryDate = message.ExpiryDate;
 
 			message.CopyExtensionInfo(news);
 

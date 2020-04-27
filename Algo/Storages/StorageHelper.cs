@@ -40,6 +40,7 @@ namespace StockSharp.Algo.Storages
 	public static class StorageHelper
 	{
 		private sealed class RangeEnumerable<TData> : SimpleEnumerable<TData>//, IEnumerableEx<TData>
+			where TData : Message
 		{
 			[DebuggerDisplay("From {_from} Cur {_currDate} To {_to}")]
 			private sealed class RangeEnumerator : IEnumerator<TData>
@@ -197,7 +198,7 @@ namespace StockSharp.Algo.Storages
 		/// <param name="drive">The storage. If a value is <see langword="null" />, <see cref="IStorageRegistry.DefaultDrive"/> will be used.</param>
 		/// <param name="format">The format type. By default <see cref="StorageFormats.Binary"/> is passed.</param>
 		/// <returns>The candles storage.</returns>
-		public static IMarketDataStorage<Candle> GetCandleStorage<TCandle, TArg>(this IStorageRegistry storageRegistry, Security security, TArg arg, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
+		public static IEntityMarketDataStorage<Candle, CandleMessage> GetCandleStorage<TCandle, TArg>(this IStorageRegistry storageRegistry, Security security, TArg arg, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
 			where TCandle : Candle
 		{
 			return storageRegistry.ThrowIfNull().GetCandleStorage(typeof(TCandle), security, arg, drive, format);
@@ -211,7 +212,7 @@ namespace StockSharp.Algo.Storages
 		/// <param name="drive">The storage. If a value is <see langword="null" />, <see cref="IStorageRegistry.DefaultDrive"/> will be used.</param>
 		/// <param name="format">The format type. By default <see cref="StorageFormats.Binary"/> is passed.</param>
 		/// <returns>The candles storage.</returns>
-		public static IMarketDataStorage<Candle> GetCandleStorage(this IStorageRegistry storageRegistry, CandleSeries series, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
+		public static IEntityMarketDataStorage<Candle, CandleMessage> GetCandleStorage(this IStorageRegistry storageRegistry, CandleSeries series, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
 		{
 			if (series == null)
 				throw new ArgumentNullException(nameof(series));
@@ -227,7 +228,8 @@ namespace StockSharp.Algo.Storages
 			return storageRegistry;
 		}
 
-		internal static IEnumerable<Range<DateTimeOffset>> GetRanges<TValue>(this IMarketDataStorage<TValue> storage)
+		internal static IEnumerable<Range<DateTimeOffset>> GetRanges<TMessage>(this IMarketDataStorage<TMessage> storage)
+			where TMessage : Message
 		{
 			if (storage == null)
 				throw new ArgumentNullException(nameof(storage));
@@ -237,24 +239,25 @@ namespace StockSharp.Algo.Storages
 			if (range == null)
 				return Enumerable.Empty<Range<DateTimeOffset>>();
 
-			return storage.Dates.Select(d => d.ApplyTimeZone(TimeZoneInfo.Utc)).GetRanges(range.Min, range.Max);
+			return storage.Dates.Select(d => d.ApplyUtc()).GetRanges(range.Min, range.Max);
 		}
 
 		/// <summary>
 		/// To create an iterative loader of market data for the time range.
 		/// </summary>
-		/// <typeparam name="TData">Data type.</typeparam>
+		/// <typeparam name="TMessage">Data type.</typeparam>
 		/// <param name="storage">Market-data storage.</param>
 		/// <param name="from">The start time for data loading. If the value is not specified, data will be loaded from the starting time <see cref="GetFromDate"/>.</param>
 		/// <param name="to">The end time for data loading. If the value is not specified, data will be loaded up to the <see cref="GetToDate"/> date, inclusive.</param>
 		/// <returns>The iterative loader of market data.</returns>
-		public static IEnumerable<TData> Load<TData>(this IMarketDataStorage<TData> storage, DateTimeOffset? from = null, DateTimeOffset? to = null)
+		public static IEnumerable<TMessage> Load<TMessage>(this IMarketDataStorage<TMessage> storage, DateTimeOffset? from = null, DateTimeOffset? to = null)
+			where TMessage : Message
 		{
 			var range = GetRange(storage, from, to);
 
 			return range == null
-				? Enumerable.Empty<TData>()
-				: new RangeEnumerable<TData>(storage, range.Min, range.Max, ((IMarketDataStorageInfo<TData>)storage).GetTime);
+				? Enumerable.Empty<TMessage>()
+				: new RangeEnumerable<TMessage>(storage, range.Min, range.Max, ((IMarketDataStorageInfo<TMessage>)storage).GetTime);
 		}
 
 		/// <summary>
@@ -293,7 +296,7 @@ namespace StockSharp.Algo.Storages
 					}
 					else
 					{
-						var data = storage.Load(date.Date).Cast<object>().ToList();
+						var data = storage.Load(date.Date).ToList();
 						data.RemoveWhere(d =>
 						{
 							var time = info.GetTime(d);
@@ -306,7 +309,7 @@ namespace StockSharp.Algo.Storages
 					storage.Delete(date.Date);
 				else
 				{
-					var data = storage.Load(date.Date).Cast<object>().ToList();
+					var data = storage.Load(date.Date).ToList();
 					data.RemoveWhere(d => info.GetTime(d) > range.Max);
 					storage.Delete(data);
 				}
@@ -329,8 +332,8 @@ namespace StockSharp.Algo.Storages
 			if (dates.IsEmpty())
 				return null;
 
-			var first = dates.First().ApplyTimeZone(TimeZoneInfo.Utc);
-			var last = dates.Last().EndOfDay().ApplyTimeZone(TimeZoneInfo.Utc);
+			var first = dates.First().ApplyUtc();
+			var last = dates.Last().EndOfDay().ApplyUtc();
 
 			if (from > last)
 				return null;
@@ -377,50 +380,6 @@ namespace StockSharp.Algo.Storages
 				dates = dates.Where(d => d <= to.Value);
 
 			return dates;
-		}
-
-		/// <summary>
-		/// To convert string representation of the candle argument into typified.
-		/// </summary>
-		/// <param name="messageType">The type of candle message.</param>
-		/// <param name="str">The string representation of the argument.</param>
-		/// <returns>Argument.</returns>
-		public static object ToCandleArg(this Type messageType, string str)
-		{
-			if (messageType == null)
-				throw new ArgumentNullException(nameof(messageType));
-
-			if (str.IsEmpty())
-				throw new ArgumentNullException(nameof(str));
-
-			if (messageType == typeof(TimeFrameCandleMessage))
-			{
-				return str.Replace('-', ':').To<TimeSpan>();
-			}
-			else if (messageType == typeof(TickCandleMessage))
-			{
-				return str.To<int>();
-			}
-			else if (messageType == typeof(VolumeCandleMessage))
-			{
-				return str.To<decimal>();
-			}
-			else if (messageType == typeof(RangeCandleMessage) || messageType == typeof(RenkoCandleMessage))
-			{
-				return str.ToUnit();
-			}
-			else if (messageType == typeof(PnFCandleMessage))
-			{
-				var parts = str.Split('_');
-
-				return new PnFArg
-				{
-					BoxSize = parts[0].ToUnit(),
-					ReversalAmount = parts[1].To<int>()
-				};
-			}
-			else
-				throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
 		}
 
 		/// <summary>
@@ -547,7 +506,7 @@ namespace StockSharp.Algo.Storages
 			private readonly TimeSpan _timeFrame;
 			private DateTime _prevDate;
 
-			public CandleMessageBuildableStorage(IStorageRegistry registry, SecurityId securityId, TimeSpan timeFrame, IMarketDataDrive drive, StorageFormats format)
+			public CandleMessageBuildableStorage(CandleBuilderProvider provider, IStorageRegistry registry, SecurityId securityId, TimeSpan timeFrame, IMarketDataDrive drive, StorageFormats format)
 			{
 				if (registry == null)
 					throw new ArgumentNullException(nameof(registry));
@@ -563,7 +522,7 @@ namespace StockSharp.Algo.Storages
 					DataType = MarketDataTypes.CandleTimeFrame,
 					Arg = timeFrame,
 					IsSubscribe = true,
-				}, new TimeFrameCandleBuilder(registry.ExchangeInfoProvider)));
+				}, provider.Get(typeof(TimeFrameCandleMessage))));
 			}
 
 			private IEnumerable<TimeSpan> GetSmallerTimeFrames()
@@ -596,13 +555,13 @@ namespace StockSharp.Algo.Storages
 				set => _original.AppendOnlyNew = value;
 			}
 
-			int IMarketDataStorage.Save(IEnumerable data) => ((IMarketDataStorage<CandleMessage>)this).Save(data);
+			int IMarketDataStorage.Save(IEnumerable<Message> data) => ((IMarketDataStorage<CandleMessage>)this).Save(data);
 
-			void IMarketDataStorage.Delete(IEnumerable data) => ((IMarketDataStorage<CandleMessage>)this).Delete(data);
+			void IMarketDataStorage.Delete(IEnumerable<Message> data) => ((IMarketDataStorage<CandleMessage>)this).Delete(data);
 
 			void IMarketDataStorage.Delete(DateTime date) => ((IMarketDataStorage<CandleMessage>)this).Delete(date);
 
-			IEnumerable IMarketDataStorage.Load(DateTime date) => ((IMarketDataStorage<CandleMessage>)this).Load(date);
+			IEnumerable<Message> IMarketDataStorage.Load(DateTime date) => ((IMarketDataStorage<CandleMessage>)this).Load(date);
 
 			IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date) =>  ((IMarketDataStorage<CandleMessage>)this).GetMetaInfo(date);
 
@@ -684,15 +643,16 @@ namespace StockSharp.Algo.Storages
 		/// <summary>
 		/// To get the candles storage for the specified instrument. The storage will build candles from smaller time-frames if original time-frames is not exist.
 		/// </summary>
+		/// <param name="provider">Candle builders provider.</param>
 		/// <param name="registry">Market-data storage.</param>
 		/// <param name="securityId">Security ID.</param>
 		/// <param name="timeFrame">Time-frame.</param>
 		/// <param name="drive">The storage. If a value is <see langword="null" />, <see cref="IStorageRegistry.DefaultDrive"/> will be used.</param>
 		/// <param name="format">The format type. By default <see cref="StorageFormats.Binary"/> is passed.</param>
 		/// <returns>The candles storage.</returns>
-		public static IMarketDataStorage<CandleMessage> GetCandleMessageBuildableStorage(this IStorageRegistry registry, SecurityId securityId, TimeSpan timeFrame, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
+		public static IMarketDataStorage<CandleMessage> GetCandleMessageBuildableStorage(this CandleBuilderProvider provider, IStorageRegistry registry, SecurityId securityId, TimeSpan timeFrame, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
 		{
-			return new CandleMessageBuildableStorage(registry, securityId, timeFrame, drive, format);
+			return new CandleMessageBuildableStorage(provider, registry, securityId, timeFrame, drive, format);
 		}
 
 		/// <summary>
@@ -737,7 +697,7 @@ namespace StockSharp.Algo.Storages
 			return args.OrderBy().ToArray();
 		}
 
-		private class ConvertableStorage<TMessage, TEntity> : IMarketDataStorage<TEntity>, IMarketDataStorageInfo<TEntity>
+		private class ConvertableStorage<TMessage, TEntity> : IEntityMarketDataStorage<TEntity, TMessage>, IMarketDataStorageInfo<TMessage>
 			where TMessage : Message
 		{
 			private readonly Security _security;
@@ -760,17 +720,7 @@ namespace StockSharp.Algo.Storages
 
 			IMarketDataSerializer IMarketDataStorage.Serializer => _messageStorage.Serializer;
 
-			IMarketDataSerializer<TEntity> IMarketDataStorage<TEntity>.Serializer => throw new NotSupportedException();
-
-			public int Save(IEnumerable<TEntity> data)
-			{
-				return _messageStorage.Save(data.Select(_toMessage));
-			}
-
-			public void Delete(IEnumerable<TEntity> data)
-			{
-				_messageStorage.Delete(data.Select(_toMessage));
-			}
+			IMarketDataSerializer<TMessage> IMarketDataStorage<TMessage>.Serializer => throw new NotSupportedException();
 
 			IEnumerable<DateTime> IMarketDataStorage.Dates => _messageStorage.Dates;
 
@@ -788,14 +738,34 @@ namespace StockSharp.Algo.Storages
 				set => _messageStorage.AppendOnlyNew = value;
 			}
 
-			int IMarketDataStorage.Save(IEnumerable data)
+			int IMarketDataStorage.Save(IEnumerable<Message> data)
 			{
-				return Save(data.Cast<TEntity>());
+				return ((IMarketDataStorage<TMessage>)this).Save(data.Cast<TMessage>());
 			}
 
-			void IMarketDataStorage.Delete(IEnumerable data)
+			int IEntityMarketDataStorage<TEntity, TMessage>.Save(IEnumerable<TEntity> data)
 			{
-				Delete(data.Cast<TEntity>());
+				return ((IMarketDataStorage<TMessage>)this).Save(data.Select(_toMessage));
+			}
+
+			int IMarketDataStorage<TMessage>.Save(IEnumerable<TMessage> data)
+			{
+				return _messageStorage.Save(data);
+			}
+
+			void IMarketDataStorage.Delete(IEnumerable<Message> data)
+			{
+				((IMarketDataStorage<TMessage>)this).Delete(data.Cast<TMessage>());
+			}
+
+			void IEntityMarketDataStorage<TEntity, TMessage>.Delete(IEnumerable<TEntity> data)
+			{
+				((IMarketDataStorage<TMessage>)this).Delete(data.Select(_toMessage));
+			}
+
+			void IMarketDataStorage<TMessage>.Delete(IEnumerable<TMessage> data)
+			{
+				_messageStorage.Delete(data);
 			}
 
 			void IMarketDataStorage.Delete(DateTime date)
@@ -803,24 +773,29 @@ namespace StockSharp.Algo.Storages
 				_messageStorage.Delete(date);
 			}
 
-			IEnumerable IMarketDataStorage.Load(DateTime date)
+			IEnumerable<Message> IMarketDataStorage.Load(DateTime date)
 			{
-				return Load(date);
+				return ((IMarketDataStorage<TMessage>)this).Load(date);
 			}
 
 			public IEnumerable<TEntity> Load(DateTime date)
 			{
-				return _messageStorage.Load(date).ToEntities<TMessage, TEntity>(_security, _exchangeInfoProvider);
+				return ((IMarketDataStorage<TMessage>)this).Load(date).ToEntities<TMessage, TEntity>(_security, _exchangeInfoProvider);
 			}
 
-			public DateTimeOffset GetTime(TEntity data)
+			IEnumerable<TMessage> IMarketDataStorage<TMessage>.Load(DateTime date)
 			{
-				return ((IMarketDataStorageInfo<TMessage>)_messageStorage).GetTime(_toMessage(data));
+				return _messageStorage.Load(date);
+			}
+
+			DateTimeOffset IMarketDataStorageInfo<TMessage>.GetTime(TMessage message)
+			{
+				return ((IMarketDataStorageInfo)this).GetTime(message);
 			}
 
 			DateTimeOffset IMarketDataStorageInfo.GetTime(object data)
 			{
-				return GetTime((TEntity)data);
+				return ((IMarketDataStorageInfo<TMessage>)_messageStorage).GetTime((TMessage)data);
 			}
 		}
 
@@ -835,7 +810,7 @@ namespace StockSharp.Algo.Storages
 		/// <param name="security">Security.</param>
 		/// <param name="exchangeInfoProvider">Exchanges and trading boards provider.</param>
 		/// <returns>Entity storage.</returns>
-		public static IMarketDataStorage<TEntity> ToEntityStorage<TMessage, TEntity>(this IMarketDataStorage<TMessage> storage, Security security, IExchangeInfoProvider exchangeInfoProvider = null)
+		public static IEntityMarketDataStorage<TEntity, TMessage> ToEntityStorage<TMessage, TEntity>(this IMarketDataStorage<TMessage> storage, Security security, IExchangeInfoProvider exchangeInfoProvider = null)
 			where TMessage : Message
 		{
 			Func<TEntity, TMessage> toMessage;
@@ -892,7 +867,517 @@ namespace StockSharp.Algo.Storages
 			else
 				throw new ArgumentOutOfRangeException(nameof(TEntity), typeof(TEntity), LocalizedStrings.Str1219);
 
-			return (IMarketDataStorage<TEntity>)_convertedStorages.SafeAdd(storage, key => new ConvertableStorage<TMessage, TEntity>(security, storage, exchangeInfoProvider ?? new InMemoryExchangeInfoProvider(), toMessage));
+			return (IEntityMarketDataStorage<TEntity, TMessage>)_convertedStorages.SafeAdd(storage, key => new ConvertableStorage<TMessage, TEntity>(security, storage, exchangeInfoProvider ?? new InMemoryExchangeInfoProvider(), toMessage));
+		}
+
+
+		/// <summary>
+		/// The delimiter, replacing '/' in path for instruments with id like USD/EUR. Is equal to '__'.
+		/// </summary>
+		public const string SecurityPairSeparator = "__";
+
+		/// <summary>
+		/// The delimiter, replacing '*' in the path for instruments with id like C.BPO-*@CANADIAN. Is equal to '##STAR##'.
+		/// </summary>
+		public const string SecurityStarSeparator = "##STAR##";
+		// http://stocksharp.com/forum/yaf_postst4637_API-4-2-2-18--System-ArgumentException--Illegal-characters-in-path.aspx
+
+		/// <summary>
+		/// The delimiter, replacing ':' in the path for instruments with id like AA-CA:SPB@SPBEX. Is equal to '##COLON##'.
+		/// </summary>
+		public const string SecurityColonSeparator = "##COLON##";
+
+		/// <summary>
+		/// The delimiter, replacing '|' in the path for instruments with id like AA-CA|SPB@SPBEX. Is equal to '##VBAR##'.
+		/// </summary>
+		public const string SecurityVerticalBarSeparator = "##VBAR##";
+
+		/// <summary>
+		/// The delimiter, replacing first '.' in the path for instruments with id like .AA-CA@SPBEX. Is equal to '##DOT##'.
+		/// </summary>
+		public const string SecurityFirstDot = "##DOT##";
+
+		///// <summary>
+		///// The delimiter, replacing first '..' in the path for instruments with id like ..AA-CA@SPBEX. Is equal to '##DDOT##'.
+		///// </summary>
+		//public const string SecurityFirst2Dots = "##DDOT##";
+
+		private static readonly CachedSynchronizedDictionary<string, string> _securitySeparators = new CachedSynchronizedDictionary<string, string>
+		{
+			{ "/", SecurityPairSeparator },
+			{ "*", SecurityStarSeparator },
+			{ ":", SecurityColonSeparator },
+			{ "|", SecurityVerticalBarSeparator },
+		};
+
+		// http://stackoverflow.com/questions/62771/how-check-if-given-string-is-legal-allowed-file-name-under-windows
+		private static readonly string[] _reservedDos =
+		{
+			"CON", "PRN", "AUX", "NUL",
+			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+		};
+
+		/// <summary>
+		/// To convert the instrument identifier into the folder name, replacing reserved symbols.
+		/// </summary>
+		/// <param name="id">Security ID.</param>
+		/// <returns>Directory name.</returns>
+		public static string SecurityIdToFolderName(this string id)
+		{
+			if (id.IsEmpty())
+				throw new ArgumentNullException(nameof(id));
+
+			var folderName = id;
+
+			if (_reservedDos.Any(d => folderName.StartsWithIgnoreCase(d)))
+				folderName = "_" + folderName;
+
+			if (folderName.StartsWithIgnoreCase("."))
+				folderName = SecurityFirstDot + folderName.Remove(0, 1);
+
+			return _securitySeparators
+				.CachedPairs
+				.Aggregate(folderName, (current, pair) => current.Replace(pair.Key, pair.Value));
+		}
+
+		/// <summary>
+		/// The inverse conversion from the <see cref="SecurityIdToFolderName"/> method.
+		/// </summary>
+		/// <param name="folderName">Directory name.</param>
+		/// <returns>Security ID.</returns>
+		public static string FolderNameToSecurityId(this string folderName)
+		{
+			if (folderName.IsEmpty())
+				throw new ArgumentNullException(nameof(folderName));
+
+			var id = folderName.ToUpperInvariant();
+
+			if (id[0] == '_' && _reservedDos.Any(d => id.StartsWithIgnoreCase("_" + d)))
+				id = id.Substring(1);
+
+			if (id.StartsWithIgnoreCase(SecurityFirstDot))
+				id = id.ReplaceIgnoreCase(SecurityFirstDot, ".");
+
+			return _securitySeparators
+				.CachedPairs
+				.Aggregate(id, (current, pair) => current.ReplaceIgnoreCase(pair.Value, pair.Key));
+		}
+
+		/// <summary>
+		/// Convert <see cref="string"/> to <see cref="MarketDataMessage.Arg"/> value.
+		/// </summary>
+		/// <param name="messageType">Message type.</param>
+		/// <param name="strValue"><see cref="string"/> value.</param>
+		/// <returns><see cref="MarketDataMessage.Arg"/> value.</returns>
+		public static object StringToMessageArg(this Type messageType, string strValue)
+		{
+			if (messageType == null)
+				throw new ArgumentNullException(nameof(messageType));
+
+			if (messageType == typeof(ExecutionMessage))
+				return strValue.To<ExecutionTypes>();
+			else if (messageType.IsCandleMessage())
+				return messageType.ToCandleArg(strValue);
+			else
+				return strValue;
+		}
+
+		/// <summary>
+		/// Convert <see cref="MarketDataMessage.Arg"/> to <see cref="string"/> value.
+		/// </summary>
+		/// <param name="messageType">Message type.</param>
+		/// <param name="arg"><see cref="MarketDataMessage.Arg"/> value.</param>
+		/// <returns><see cref="string"/> value.</returns>
+		public static string MessageArgToString(this Type messageType, object arg)
+		{
+			if (messageType == null)
+				throw new ArgumentNullException(nameof(messageType));
+
+			if (messageType == typeof(ExecutionMessage))
+			{
+				if (arg is null)
+					throw new ArgumentNullException(nameof(arg));
+
+				return arg.ToString();
+			}
+			else if (messageType.IsCandleMessage())
+				return messageType.CandleArgToFolderName(arg);
+			else
+				return arg?.ToString();
+		}
+
+		/// <summary>
+		/// Load messages.
+		/// </summary>
+		/// <param name="settings">Storage settings.</param>
+		/// <param name="candleBuilderProvider">Candle builders provider.</param>
+		/// <param name="msg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
+		/// <param name="newOutMessage">New message event.</param>
+		/// <returns>Last date.</returns>
+		public static DateTimeOffset? LoadMessages(this StorageCoreSettings settings, CandleBuilderProvider candleBuilderProvider, MarketDataMessage msg, Action<Message> newOutMessage)
+		{
+			var transactionId = msg.TransactionId;
+
+			void SendReply() => newOutMessage(new SubscriptionResponseMessage { OriginalTransactionId = transactionId });
+			void SendOut(Message message)
+			{
+				message.OfflineMode = MessageOfflineModes.Ignore;
+				newOutMessage(message);
+			}
+
+			IMarketDataStorage<TMessage> GetStorage<TMessage>(SecurityId securityId, object arg)
+				where TMessage : Message
+			{
+				return (IMarketDataStorage<TMessage>)settings.GetStorage(securityId, typeof(TMessage), arg);
+			}
+
+			var from = msg.From;
+			var to = msg.To;
+
+			DateTimeOffset? lastTime = null;
+
+			var secId = msg.SecurityId;
+
+			switch (msg.DataType)
+			{
+				case MarketDataTypes.Level1:
+					if (msg.BuildMode != MarketDataBuildModes.Build)
+					{
+						if (settings.IsMode(StorageModes.Incremental))
+							lastTime = LoadMessages(GetStorage<Level1ChangeMessage>(secId, null), from, to, TimeSpan.Zero, transactionId, SendReply, SendOut);
+					}
+					else
+					{
+						if (msg.BuildFrom == MarketDataTypes.OrderLog)
+						{
+							var storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
+
+							var range = GetRange(storage, from, to, TimeSpan.Zero);
+
+							if (range != null)
+							{
+								lastTime = LoadMessages(storage
+									.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									.ToLevel1(msg.DepthBuilder, msg.RefreshSpeed ?? default, msg.MaxDepth ?? int.MaxValue), range.Item1, transactionId, SendReply, SendOut);
+							}
+						}
+						else if (msg.BuildFrom == MarketDataTypes.MarketDepth)
+						{
+							var storage = GetStorage<QuoteChangeMessage>(secId, null);
+
+							var range = GetRange(storage, from, to, TimeSpan.Zero);
+
+							if (range != null)
+							{
+								lastTime = LoadMessages(storage
+									.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									.ToLevel1(), range.Item1, transactionId, SendReply, SendOut);
+							}
+						}
+					}
+						
+					break;
+
+				case MarketDataTypes.MarketDepth:
+					if (msg.BuildMode != MarketDataBuildModes.Build)
+					{
+						if (settings.IsMode(StorageModes.Incremental))
+							lastTime = LoadMessages(GetStorage<QuoteChangeMessage>(secId, null), from, to, TimeSpan.Zero, transactionId, SendReply, SendOut);
+					}
+					else
+					{
+						if (msg.BuildFrom == MarketDataTypes.OrderLog)
+						{
+							var storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
+
+							var range = GetRange(storage, from, to, TimeSpan.Zero);
+
+							if (range != null)
+							{
+								lastTime = LoadMessages(storage
+									.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									.ToOrderBooks(msg.DepthBuilder, msg.RefreshSpeed ?? default, msg.MaxDepth ?? int.MaxValue), range.Item1, transactionId, SendReply, SendOut);
+							}
+						}
+						else if (msg.BuildFrom == MarketDataTypes.Level1)
+						{
+							var storage = GetStorage<Level1ChangeMessage>(secId, null);
+
+							var range = GetRange(storage, from, to, TimeSpan.Zero);
+
+							if (range != null)
+							{
+								lastTime = LoadMessages(storage
+									.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									.ToOrderBooks(), range.Item1, transactionId, SendReply, SendOut);
+							}
+						}
+					}
+
+					break;
+
+				case MarketDataTypes.Trades:
+					if (msg.BuildMode != MarketDataBuildModes.Build)
+						lastTime = LoadMessages(GetStorage<ExecutionMessage>(secId, ExecutionTypes.Tick), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+					else
+					{
+						if (msg.BuildFrom == MarketDataTypes.OrderLog)
+						{
+							var storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
+
+							var range = GetRange(storage, from, to, TimeSpan.Zero);
+
+							if (range != null)
+							{
+								lastTime = LoadMessages(storage
+									.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									.ToTicks(), range.Item1, transactionId, SendReply, SendOut);
+							}
+						}
+						else if (msg.BuildFrom == MarketDataTypes.Level1)
+						{
+							var storage = GetStorage<Level1ChangeMessage>(secId, null);
+
+							var range = GetRange(storage, from, to, TimeSpan.Zero);
+
+							if (range != null)
+							{
+								lastTime = LoadMessages(storage
+									.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									.ToTicks(), range.Item1, transactionId, SendReply, SendOut);
+							}
+						}
+					}
+
+					break;
+
+				case MarketDataTypes.OrderLog:
+					lastTime = LoadMessages(GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+					break;
+
+				case MarketDataTypes.News:
+					lastTime = LoadMessages(GetStorage<NewsMessage>(default, null), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+					break;
+
+				case MarketDataTypes.Board:
+					lastTime = LoadMessages(GetStorage<BoardStateMessage>(default, null), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+					break;
+
+				case MarketDataTypes.CandleTimeFrame:
+					var tf = msg.GetTimeFrame();
+
+					if (msg.IsBuildOnly())
+					{
+						IMarketDataStorage storage;
+
+						switch (msg.BuildFrom)
+						{
+							case null:
+							case MarketDataTypes.Trades:
+								storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.Tick);
+								break;
+
+							case MarketDataTypes.OrderLog:
+								storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
+								break;
+
+							case MarketDataTypes.Level1:
+								storage = GetStorage<Level1ChangeMessage>(secId, null);
+								break;
+
+							case MarketDataTypes.MarketDepth:
+								storage = GetStorage<QuoteChangeMessage>(secId, null);
+								break;
+
+							default:
+								throw new ArgumentOutOfRangeException(nameof(msg), msg.BuildFrom, LocalizedStrings.Str1219);
+						}
+
+						var range = GetRange(storage, from, to, TimeSpan.FromDays(2));
+
+						if (range != null)
+						{
+							var mdMsg = msg.TypedClone();
+							mdMsg.From = mdMsg.To = null;
+
+							switch (msg.BuildFrom)
+							{
+								case null:
+								case MarketDataTypes.Trades:
+									lastTime = LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
+									                        .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									                        .ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+
+									break;
+
+								case MarketDataTypes.OrderLog:
+								{
+									switch (msg.BuildField)
+									{
+										case null:
+										case Level1Fields.LastTradePrice:
+											lastTime = LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
+											                        .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+											                        .ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+
+											break;
+											
+										// TODO
+										//case Level1Fields.SpreadMiddle:
+										//	lastTime = LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
+										//	    .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+										//		.ToOrderBooks(OrderLogBuilders.Plaza2.CreateBuilder(security.ToSecurityId()))
+										//	    .ToCandles(mdMsg, false, exchangeInfoProvider: exchangeInfoProvider), range.Item1, transactionId, SendReply, SendOut);
+										//	break;
+									}
+
+									break;
+								}
+
+								case MarketDataTypes.Level1:
+									switch (msg.BuildField)
+									{
+										case null:
+										case Level1Fields.LastTradePrice:
+											lastTime = LoadMessages(((IMarketDataStorage<Level1ChangeMessage>)storage)
+											                        .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+											                        .ToTicks()
+											                        .ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+											break;
+
+										case Level1Fields.BestBidPrice:
+										case Level1Fields.BestAskPrice:
+										case Level1Fields.SpreadMiddle:
+											lastTime = LoadMessages(((IMarketDataStorage<Level1ChangeMessage>)storage)
+											                        .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+											                        .ToOrderBooks()
+											                        .ToCandles(mdMsg, msg.BuildField.Value, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+											break;
+									}
+									
+									break;
+
+								case MarketDataTypes.MarketDepth:
+									lastTime = LoadMessages(((IMarketDataStorage<QuoteChangeMessage>)storage)
+									                        .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+									                        .ToCandles(mdMsg, msg.BuildField ?? Level1Fields.SpreadMiddle, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+									break;
+
+								default:
+									throw new ArgumentOutOfRangeException(nameof(msg), msg.BuildFrom, LocalizedStrings.Str1219);
+							}
+						}
+					}
+					else
+					{
+						var days = settings.DaysLoad;
+
+						//if (tf.Ticks > 1)
+						//{
+						//	if (tf.TotalMinutes < 15)
+						//		days = TimeSpan.FromTicks(tf.Ticks * 10000);
+						//	else if (tf.TotalHours < 2)
+						//		days = TimeSpan.FromTicks(tf.Ticks * 1000);
+						//	else if (tf.TotalDays < 2)
+						//		days = TimeSpan.FromTicks(tf.Ticks * 100);
+						//	else
+						//		days = TimeSpan.FromTicks(tf.Ticks * 50);	
+						//}
+
+						IMarketDataStorage<CandleMessage> GetTimeFrameCandleMessageStorage(SecurityId securityId, TimeSpan timeFrame, bool allowBuildFromSmallerTimeFrame)
+						{
+							if (!allowBuildFromSmallerTimeFrame)
+								return (IMarketDataStorage<CandleMessage>)settings.GetStorage(securityId, typeof(TimeFrameCandleMessage), timeFrame);
+
+							return candleBuilderProvider.GetCandleMessageBuildableStorage(settings.StorageRegistry, securityId, timeFrame, settings.Drive, settings.Format);
+						}
+
+						lastTime = LoadMessages(GetTimeFrameCandleMessageStorage(secId, tf, msg.AllowBuildFromSmallerTimeFrame), from, to, days, transactionId, SendReply, SendOut);
+					}
+					
+					break;
+
+				default:
+				{
+					if (msg.DataType.IsCandleDataType())
+					{
+						var storage = (IMarketDataStorage<CandleMessage>)settings.GetStorage(secId, msg.DataType.ToCandleMessage(), msg.Arg);
+
+						var range = GetRange(storage, from, to, settings.DaysLoad);
+
+						if (range != null)
+						{
+							var messages = storage.Load(range.Item1.Date, range.Item2.Date.EndOfDay());
+							lastTime = LoadMessages(messages, range.Item1, transactionId, SendReply, SendOut);
+						}
+					}
+
+					break;
+					// throw new ArgumentOutOfRangeException(nameof(msg), msg.DataType, LocalizedStrings.Str721);
+				}
+			}
+
+			return lastTime;
+		}
+
+		private static Tuple<DateTimeOffset, DateTimeOffset> GetRange(IMarketDataStorage storage, DateTimeOffset? from, DateTimeOffset? to, TimeSpan daysLoad)
+		{
+			var last = storage.Dates.LastOr();
+
+			if (last == null)
+				return null;
+
+			if (to == null)
+				to = last.Value;
+
+			if (from == null)
+				from = to.Value - daysLoad;
+
+			return Tuple.Create(from.Value, to.Value);
+		}
+
+		private static DateTimeOffset? LoadMessages<TMessage>(IMarketDataStorage<TMessage> storage, DateTimeOffset? from, DateTimeOffset? to, TimeSpan daysLoad, long transactionId, Action sendReply, Action<Message> newOutMessage) 
+			where TMessage : Message, ISubscriptionIdMessage, IServerTimeMessage
+		{
+			var range = GetRange(storage, from, to, daysLoad);
+
+			if (range == null)
+				return null;
+
+			var messages = storage.Load(range.Item1.Date, range.Item2.Date.EndOfDay());
+
+			return LoadMessages(messages, range.Item1, transactionId, sendReply, newOutMessage);
+		}
+
+		private static DateTimeOffset? LoadMessages<TMessage>(IEnumerable<TMessage> messages, DateTimeOffset lastTime, long transactionId, Action sendReply, Action<Message> newOutMessage)
+			where TMessage : Message, ISubscriptionIdMessage, IServerTimeMessage
+		{
+			if (messages == null)
+				throw new ArgumentNullException(nameof(messages));
+
+			if (sendReply == null)
+				throw new ArgumentNullException(nameof(sendReply));
+
+			var replySent = false;
+
+			foreach (var message in messages)
+			{
+				if (!replySent)
+				{
+					sendReply();
+					replySent = true;
+				}
+
+				message.OriginalTransactionId = transactionId;
+				message.SetSubscriptionIds(subscriptionId: transactionId);
+
+				lastTime = message.ServerTime;
+
+				newOutMessage(message);
+			}
+
+			return lastTime;
 		}
 	}
 }

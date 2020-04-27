@@ -16,7 +16,17 @@ namespace StockSharp.Community
 		/// <param name="sessionId">Session ID (authentication).</param>
 		/// <returns>Session ID (activity).</returns>
 		[OperationContract]
+		[Obsolete]
 		long CreateSession(Products product, Guid sessionId);
+
+		/// <summary>
+		/// Create a new activity session.
+		/// </summary>
+		/// <param name="sessionId">Session ID (authentication).</param>
+		/// <param name="productId">Product ID.</param>
+		/// <returns>Session ID (activity).</returns>
+		[OperationContract]
+		long CreateSession2(Guid sessionId, long productId);
 
 		/// <summary>
 		/// Track the session is alive.

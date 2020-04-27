@@ -88,20 +88,6 @@
 					break;
 				}
 
-				case MessageTypes.Reset:
-				{
-					lock (_syncRoot)
-					{
-						_securityIds.Clear();
-						_suspendedOutMessages.Clear();
-						_suspendedInMessages.Clear();
-						_skipTransactions.Clear();
-					}
-
-					base.OnInnerAdapterNewOutMessage(message);
-					break;
-				}
-
 				case MessageTypes.Security:
 				{
 					var secMsg = (SecurityMessage)message;
@@ -130,10 +116,22 @@
 								if (prevId != null)
 								{
 									if (securityId != prevId.Value)
-										throw new InvalidOperationException(LocalizedStrings.Str687Params.Put(securityId, prevId.Value, nativeSecurityId));
+									{
+										//throw new InvalidOperationException(LocalizedStrings.Str687Params.Put(securityId, prevId.Value, nativeSecurityId));
+										this.AddWarningLog(LocalizedStrings.Str687Params.Put(securityId, prevId.Value, nativeSecurityId));
+										
+										Storage.RemoveBySecurityId(storageName, prevId.Value);
+										Storage.TryAdd(storageName, securityId, nativeSecurityId, IsNativeIdentifiersPersistable);
+									}
 								}
 								else
-									throw new InvalidOperationException(LocalizedStrings.Str687Params.Put(Storage.TryGetBySecurityId(storageName, securityId), nativeSecurityId, securityId));
+								{
+									//throw new InvalidOperationException(LocalizedStrings.Str687Params.Put(Storage.TryGetBySecurityId(storageName, securityId), nativeSecurityId, securityId));
+									this.AddWarningLog(LocalizedStrings.Str687Params.Put(Storage.TryGetBySecurityId(storageName, securityId), nativeSecurityId, securityId));
+									
+									Storage.RemoveByNativeId(storageName, nativeSecurityId);
+									Storage.TryAdd(storageName, securityId, nativeSecurityId, IsNativeIdentifiersPersistable);
+								}
 							}
 
 							lock (_syncRoot)
@@ -152,18 +150,11 @@
 					break;
 				}
 
-				//case MessageTypes.Position:
-				//{
-				//	var positionMsg = (PositionMessage)message;
-				//	ProcessMessage(positionMsg.SecurityId, positionMsg, null);
-				//	break;
-				//}
-
 				case MessageTypes.PositionChange:
 				{
 					var positionMsg = (PositionChangeMessage)message;
 
-					ProcessMessage(positionMsg.SecurityId, positionMsg, positionMsg.OriginalTransactionId, true, (prev, curr) =>
+					ProcessMessage(positionMsg, true, (prev, curr) =>
 					{
 						foreach (var pair in prev.Changes)
 						{
@@ -178,7 +169,7 @@
 				case MessageTypes.Execution:
 				{
 					var execMsg = (ExecutionMessage)message;
-					ProcessMessage(execMsg.SecurityId, execMsg, execMsg.OriginalTransactionId, execMsg.ExecutionType == ExecutionTypes.Tick && execMsg.OriginalTransactionId == 0, null);
+					ProcessMessage(execMsg, execMsg.ExecutionType == ExecutionTypes.Tick && execMsg.OriginalTransactionId == 0, null);
 					break;
 				}
 
@@ -186,7 +177,7 @@
 				{
 					var level1Msg = (Level1ChangeMessage)message;
 
-					ProcessMessage(level1Msg.SecurityId, level1Msg, 0, true, (prev, curr) =>
+					ProcessMessage(level1Msg, true, (prev, curr) =>
 					{
 						foreach (var pair in prev.Changes)
 						{
@@ -200,20 +191,8 @@
 
 				case MessageTypes.QuoteChange:
 				{
-					var quoteChangeMsg = (QuoteChangeMessage)message;
-					ProcessMessage(quoteChangeMsg.SecurityId, quoteChangeMsg, 0, true, (prev, curr) => curr);
-					break;
-				}
-
-				case MessageTypes.CandleTimeFrame:
-				case MessageTypes.CandleRange:
-				case MessageTypes.CandlePnF:
-				case MessageTypes.CandleRenko:
-				case MessageTypes.CandleTick:
-				case MessageTypes.CandleVolume:
-				{
-					var candleMsg = (CandleMessage)message;
-					ProcessMessage(candleMsg.SecurityId, candleMsg, candleMsg.OriginalTransactionId, candleMsg.OriginalTransactionId == 0, null);
+					var quotesMsg = (QuoteChangeMessage)message;
+					ProcessMessage(quotesMsg, true, (prev, curr) => curr);
 					break;
 				}
 
@@ -222,7 +201,7 @@
 					var newsMsg = (NewsMessage)message;
 
 					if (newsMsg.SecurityId != null)
-						ProcessMessage(newsMsg.SecurityId.Value, newsMsg, newsMsg.OriginalTransactionId, true, null);
+						ProcessMessage(newsMsg.SecurityId.Value, newsMsg, true, null);
 					else
 						base.OnInnerAdapterNewOutMessage(message);
 
@@ -230,16 +209,34 @@
 				}
 
 				default:
-					base.OnInnerAdapterNewOutMessage(message);
+				{
+					if (message is CandleMessage candleMsg)
+						ProcessMessage(candleMsg, candleMsg.OriginalTransactionId == 0, null);
+					else
+						base.OnInnerAdapterNewOutMessage(message);
+
 					break;
+				}
 			}
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
+				case MessageTypes.Reset:
+				{
+					lock (_syncRoot)
+					{
+						_securityIds.Clear();
+						_suspendedOutMessages.Clear();
+						_suspendedInMessages.Clear();
+						_skipTransactions.Clear();
+					}
+
+					break;
+				}
 				case MessageTypes.OrderRegister:
 				case MessageTypes.OrderReplace:
 				case MessageTypes.OrderCancel:
@@ -248,7 +245,7 @@
 				{
 					var secMsg = (SecurityMessage)message;
 
-					if (secMsg.NotRequiredSecurityId())
+					if (secMsg.SecurityId == default)
 						break;
 
 					var securityId = secMsg.SecurityId;
@@ -265,7 +262,7 @@
 							break;
 						}
 
-						return;
+						return true;
 					}
 
 					securityId.Native = native;
@@ -287,12 +284,12 @@
 					var nativeId1 = GetNativeId(pairMsg, securityId1);
 
 					if (nativeId1 == null)
-						return;
+						return true;
 
 					var nativeId2 = GetNativeId(pairMsg, securityId2);
 
 					if (nativeId2 == null)
-						return;
+						return true;
 
 					securityId1.Native = nativeId1;
 					pairMsg.Message1.ReplaceSecurityId(securityId1);
@@ -307,7 +304,7 @@
 					break;
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		private object GetNativeId(Message message, SecurityId securityId)
@@ -337,16 +334,22 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new SecurityNativeIdMessageAdapter((IMessageAdapter)InnerAdapter.Clone(), Storage);
+			return new SecurityNativeIdMessageAdapter(InnerAdapter.TypedClone(), Storage);
 		}
 
-		private void ProcessMessage<TMessage>(SecurityId securityId, TMessage message, long originTransId, bool throwIfSecIdEmpty, Func<TMessage, TMessage, TMessage> processSuspend)
-			where TMessage : Message
+		private void ProcessMessage<TMessage>(TMessage message, bool throwIfSecIdEmpty, Func<TMessage, TMessage, TMessage> processSuspend)
+			where TMessage : Message, IOriginalTransactionIdMessage, ISecurityIdMessage
+		{
+			ProcessMessage(message.SecurityId, message, throwIfSecIdEmpty, processSuspend);
+		}
+
+		private void ProcessMessage<TMessage>(SecurityId securityId, TMessage message, bool throwIfSecIdEmpty, Func<TMessage, TMessage, TMessage> processSuspend)
+			where TMessage : Message, IOriginalTransactionIdMessage
 		{
 			bool skip;
 
 			lock (_syncRoot)
-				skip = _skipTransactions.Contains(originTransId);
+				skip = _skipTransactions.Contains(message.OriginalTransactionId);
 
 			if (skip)
 			{

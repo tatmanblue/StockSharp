@@ -54,9 +54,7 @@ namespace StockSharp.Algo.Testing
 			IdGenerator = new IncrementalIdGenerator();
 		}
 
-		/// <summary>
-		/// Market data type.
-		/// </summary>
+		/// <inheritdoc />
 		public override MarketDataTypes DataType => MarketDataTypes.OrderLog;
 
 		/// <summary>
@@ -84,11 +82,7 @@ namespace StockSharp.Algo.Testing
 			base.Init();
 		}
 
-		/// <summary>
-		/// Process message.
-		/// </summary>
-		/// <param name="message">Message.</param>
-		/// <returns>The result of processing. If <see langword="null" /> is returned, then generator has no sufficient data to generate new message.</returns>
+		/// <inheritdoc />
 		public override Message Process(Message message)
 		{
 			if (message.Type == MessageTypes.Security)
@@ -97,11 +91,7 @@ namespace StockSharp.Algo.Testing
 			return base.Process(message);
 		}
 
-		/// <summary>
-		/// Process message.
-		/// </summary>
-		/// <param name="message">Message.</param>
-		/// <returns>The result of processing. If <see langword="null" /> is returned, then generator has no sufficient data to generate new message.</returns>
+		/// <inheritdoc />
 		protected override Message OnProcess(Message message)
 		{
 			DateTimeOffset time;
@@ -185,13 +175,13 @@ namespace StockSharp.Algo.Testing
 					ExecutionType = ExecutionTypes.OrderLog,
 				};
 
-				_activeOrders.Enqueue((ExecutionMessage)item.Clone());
+				_activeOrders.Enqueue(item.TypedClone());
 			}
 			else
 			{
 				var activeOrder = _activeOrders.Peek();
 
-				item = (ExecutionMessage)activeOrder.Clone();
+				item = activeOrder.TypedClone();
 				item.ServerTime = time;
 
 				var isMatched = action == 5;
@@ -246,7 +236,7 @@ namespace StockSharp.Algo.Testing
 		/// <returns>Copy.</returns>
 		public override MarketDataGenerator Clone()
 		{
-			return new OrderLogGenerator(SecurityId, (TradeGenerator)TradeGenerator.Clone())
+			return new OrderLogGenerator(SecurityId, TradeGenerator.TypedClone())
 			{
 				_lastOrderPrice = _lastOrderPrice,
 				IdGenerator = IdGenerator

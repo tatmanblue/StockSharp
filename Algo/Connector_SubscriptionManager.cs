@@ -19,20 +19,6 @@ namespace StockSharp.Algo
 	{
 		private class SubscriptionManager
 		{
-			private class LookupInfo
-			{
-				public ISubscriptionMessage Criteria { get; }
-				public IList<object> Items { get; } = new List<object>();
-
-				public LookupInfo(ISubscriptionMessage criteria)
-				{
-					if (criteria == null)
-						throw new ArgumentNullException(nameof(criteria));
-
-					Criteria = (ISubscriptionMessage)criteria.Clone();
-				}
-			}
-
 			private class SubscriptionInfo
 			{
 				private DateTimeOffset? _last;
@@ -53,18 +39,18 @@ namespace StockSharp.Algo
 					    type == DataType.Board ||
 					    type == DataType.TimeFrames)
 					{
-						Lookup = new LookupInfo(subscription.SubscriptionMessage);
+						LookupItems = new List<object>();
 					}
 				}
 
 				public Subscription Subscription { get; }
 				public bool HasResult { get; set; }
-				public LookupInfo Lookup { get; }
+				public List<object> LookupItems { get; }
 				public CandlesSeriesHolder Holder { get; }
 
 				public ISubscriptionMessage CreateSubscriptionContinue()
 				{
-					var subscrMsg = (ISubscriptionMessage)Subscription.SubscriptionMessage.Clone();
+					var subscrMsg = Subscription.SubscriptionMessage.TypedClone();
 
 					if (_last != null)
 						subscrMsg.From = _last.Value;
@@ -178,9 +164,15 @@ namespace StockSharp.Algo
 				}
 			}
 
+			private Subscription TryGetSubscription(long id, bool remove, DateTimeOffset? time, out SubscriptionInfo info)
+			{
+				info = TryGetInfo(id, remove, time);
+				return info?.Subscription;
+			}
+
 			public Subscription TryGetSubscription(long id, bool remove, DateTimeOffset? time = null)
 			{
-				return TryGetInfo(id, remove, time)?.Subscription;
+				return TryGetSubscription(id, remove, time, out _);
 			}
 
 			public Subscription TryFindSubscription(long id, DataType dataType, Security security = null)
@@ -340,7 +332,7 @@ namespace StockSharp.Algo
 					_subscriptions.Add(subscription.TransactionId, info);
 				}
 
-				SendRequest((ISubscriptionMessage)subscrMsg.Clone(), subscription);
+				SendRequest(subscrMsg.TypedClone(), subscription);
 			}
 
 			public void UnSubscribe(Subscription subscription)
@@ -372,7 +364,7 @@ namespace StockSharp.Algo
 				lock (_syncObject)
 					_requests.Add(request.TransactionId, Tuple.Create(request, subscription));
 
-				_connector.AddInfoLog(request.IsSubscribe ? LocalizedStrings.SubscriptionSent : LocalizedStrings.UnSubscriptionSent, subscription.Security?.Id, subscription);
+				_connector.AddInfoLog(request.IsSubscribe ? LocalizedStrings.SubscriptionSent : LocalizedStrings.UnSubscriptionSent, subscription.Security?.Id, request);
 				_connector.SendInMessage((Message)request);
 			}
 
@@ -434,7 +426,12 @@ namespace StockSharp.Algo
 				}
 			}
 
-			public void ProcessLookupResponse(ISubscriptionIdMessage message, object item)
+			public void ProcessLookupResponse<T>(ISubscriptionIdMessage message, T item)
+			{
+				ProcessLookupResponse(message, new[] { item });
+			}
+
+			public void ProcessLookupResponse<T>(ISubscriptionIdMessage message, T[] items)
 			{
 				foreach (var id in message.GetSubscriptionIds())
 				{
@@ -443,62 +440,52 @@ namespace StockSharp.Algo
 					if (info == null || info.HasResult)
 						continue;
 
-					if (info.Lookup == null)
+					if (info.LookupItems == null)
 					{
 						_connector.AddWarningLog(LocalizedStrings.Str2142Params, info.Subscription.SubscriptionMessage);
 						continue;
 					}
 
-					info.Lookup.Items.Add(item);	
+					info.LookupItems.AddRange(items.Cast<object>());	
 				}
 			}
 
-			public bool TryGetAndRemoveLookup<TMessage, TItem>(IOriginalTransactionIdMessage result, out TMessage criteria, out TItem[] items)
-				where TMessage : Message, ISubscriptionMessage
+			public Subscription ProcessSubscriptionFinishedMessage(SubscriptionFinishedMessage message, out object[] items)
 			{
-				criteria = null;
-				items = null;
-
 				lock (_syncObject)
 				{
-					var info = _subscriptions.TryGetValue(result.OriginalTransactionId);
+					var subscription = TryGetSubscription(message.OriginalTransactionId, true, null, out var info);
 
-					if (info == null)
-						return false;
+					if (subscription != null)
+					{
+						items = info.LookupItems?.CopyAndClear() ?? ArrayHelper.Empty<object>();
 
-					info.HasResult = true;
+						ChangeState(subscription, SubscriptionStates.Finished);
+						_requests.Remove(message.OriginalTransactionId);
+					}
+					else
+						items = ArrayHelper.Empty<object>();
 
-					var lookup = info.Lookup;
-					if (lookup == null)
-						return false;
-
-					criteria = (TMessage)lookup.Criteria;
-					items = lookup.Items.CopyAndClear().Cast<TItem>().ToArray();
-					return true;
+					return subscription;
 				}
 			}
 
-			public Subscription ProcessSubscriptionFinishedMessage(SubscriptionFinishedMessage message)
+			public Subscription ProcessSubscriptionOnlineMessage(SubscriptionOnlineMessage message, out object[] items)
 			{
-				var subscription = TryGetSubscription(message.OriginalTransactionId, true);
-
-				if (subscription != null)
+				lock (_syncObject)
 				{
-					ChangeState(subscription, SubscriptionStates.Finished);
-					_requests.Remove(message.OriginalTransactionId);
+					var subscription = TryGetSubscription(message.OriginalTransactionId, false, null, out var info);
+
+					if (subscription != null)
+					{
+						items = info.LookupItems?.CopyAndClear() ?? ArrayHelper.Empty<object>();
+						ChangeState(subscription, SubscriptionStates.Online);
+					}
+					else
+						items = ArrayHelper.Empty<object>();
+
+					return subscription;
 				}
-
-				return subscription;
-			}
-
-			public Subscription ProcessSubscriptionOnlineMessage(SubscriptionOnlineMessage message)
-			{
-				var subscription = TryGetSubscription(message.OriginalTransactionId, false);
-
-				if (subscription != null)
-					ChangeState(subscription, SubscriptionStates.Online);
-
-				return subscription;
 			}
 
 			public IEnumerable<Tuple<Subscription, Candle>> UpdateCandles(CandleMessage message)

@@ -21,7 +21,7 @@ namespace StockSharp.Algo.Export.Database.DbProviders
 	using System.Text;
 
 	using Ecng.Common;
-	using Ecng.Xaml.DevExp.Database;
+	using Ecng.Data;
 
 	internal class SQLiteDbProvider : BaseDbProvider
 	{
@@ -82,7 +82,7 @@ namespace StockSharp.Algo.Export.Database.DbProviders
 
 		protected override string CreatePrimaryKeyString(Table table, IEnumerable<ColumnDescription> columns)
 		{
-			var str = columns.Select(c => $"[{c.Name}]").Join(",");
+			var str = columns.Select(c => $"[{c.Name}]").JoinComma();
 
 			if (str.IsEmpty())
 				return null;

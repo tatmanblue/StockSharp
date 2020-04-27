@@ -26,10 +26,10 @@ namespace StockSharp.Messages
 		/// Market data type.
 		/// </summary>
 		[DataMember]
-		public MarketDataTypes? DataType { get; set; }
+		public DataType DataType { get; set; }
 
 		/// <inheritdoc />
-		protected override void CopyTo(SecurityRouteMessage destination)
+		public override void CopyTo(SecurityRouteMessage destination)
 		{
 			base.CopyTo(destination);
 

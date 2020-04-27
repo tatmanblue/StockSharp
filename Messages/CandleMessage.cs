@@ -61,7 +61,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[System.Runtime.Serialization.DataContract]
 	[Serializable]
-	public abstract class CandleMessage : BaseSubscriptionIdMessage, IServerTimeMessage, ISecurityIdMessage
+	public abstract class CandleMessage : Message, ISubscriptionIdMessage, IServerTimeMessage, ISecurityIdMessage
 	{
 		/// <inheritdoc />
 		[DataMember]
@@ -282,6 +282,20 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public virtual object CloneArg() => Arg;
 
+		/// <inheritdoc />
+		[DataMember]
+		public long OriginalTransactionId { get; set; }
+
+		/// <inheritdoc />
+		[Ignore]
+		[XmlIgnore]
+		public long SubscriptionId { get; set; }
+
+		/// <inheritdoc />
+		[Ignore]
+		[XmlIgnore]
+		public long[] SubscriptionIds { get; set; }
+
 		/// <summary>
 		/// Copy parameters.
 		/// </summary>
@@ -290,6 +304,10 @@ namespace StockSharp.Messages
 		protected CandleMessage CopyTo(CandleMessage copy)
 		{
 			base.CopyTo(copy);
+
+			copy.OriginalTransactionId = OriginalTransactionId;
+			copy.SubscriptionId = SubscriptionId;
+			copy.SubscriptionIds = SubscriptionIds;//?.ToArray();
 
 			copy.OpenPrice = OpenPrice;
 			copy.OpenTime = OpenTime;
@@ -337,7 +355,16 @@ namespace StockSharp.Messages
 		/// Initializes a new instance of the <see cref="TimeFrameCandleMessage"/>.
 		/// </summary>
 		public TimeFrameCandleMessage()
-			: base(MessageTypes.CandleTimeFrame)
+			: this(MessageTypes.CandleTimeFrame)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="TimeFrameCandleMessage"/>.
+		/// </summary>
+		/// <param name="type">Message type.</param>
+		protected TimeFrameCandleMessage(MessageTypes type)
+			: base(type)
 		{
 		}
 
@@ -693,5 +720,34 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		public override object CloneArg() => BoxSize.Clone();
+	}
+
+	/// <summary>
+	/// The message contains information about the Heikin-Ashi candle.
+	/// </summary>
+	[System.Runtime.Serialization.DataContract]
+	[Serializable]
+	[DisplayNameLoc(LocalizedStrings.HeikinAshiKey)]
+	public class HeikinAshiCandleMessage : TimeFrameCandleMessage
+	{
+		/// <summary>
+		/// Initializes a new instance of the <see cref="HeikinAshiCandleMessage"/>.
+		/// </summary>
+		public HeikinAshiCandleMessage()
+			: base(MessageTypes.CandleHeikinAshi)
+		{
+		}
+
+		/// <summary>
+		/// Create a copy of <see cref="HeikinAshiCandleMessage"/>.
+		/// </summary>
+		/// <returns>Copy.</returns>
+		public override Message Clone()
+		{
+			return CopyTo(new HeikinAshiCandleMessage
+			{
+				TimeFrame = TimeFrame
+			});
+		}
 	}
 }

@@ -3,7 +3,6 @@ namespace StockSharp.Algo.Strategies.Messages
 	using System;
 	using System.Runtime.Serialization;
 
-	using StockSharp.Localization;
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -11,7 +10,7 @@ namespace StockSharp.Algo.Strategies.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class StrategyLookupMessage : Message, ITransactionIdMessage
+	public class StrategyLookupMessage : BaseSubscriptionMessage
 	{
 		/// <summary>
 		/// Initializes a new instance of the <see cref="StrategyLookupMessage"/>.
@@ -20,12 +19,6 @@ namespace StockSharp.Algo.Strategies.Messages
 			: base(ExtendedMessageTypes.StrategyLookup)
 		{
 		}
-
-		/// <inheritdoc />
-		[DataMember]
-		[DisplayNameLoc(LocalizedStrings.TransactionKey)]
-		[DescriptionLoc(LocalizedStrings.TransactionIdKey, true)]
-		public long TransactionId { get; set; }
 
 		/// <summary>
 		/// Create a copy of <see cref="StrategyLookupMessage"/>.
@@ -44,8 +37,6 @@ namespace StockSharp.Algo.Strategies.Messages
 		protected StrategyLookupMessage CopyTo(StrategyLookupMessage destination)
 		{
 			base.CopyTo(destination);
-
-			destination.TransactionId = TransactionId;
 
 			return destination;
 		}

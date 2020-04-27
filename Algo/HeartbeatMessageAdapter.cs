@@ -77,7 +77,7 @@ namespace StockSharp.Algo
 		private const ConnectionStates _reConnecting = (ConnectionStates)10;
 
 		private readonly SyncObject _timeSync = new SyncObject();
-		private readonly TimeMessage _timeMessage = new TimeMessage { OfflineMode = MessageOfflineModes.Force };
+		private readonly TimeMessage _timeMessage = new TimeMessage { OfflineMode = MessageOfflineModes.Ignore };
 
 		private readonly ReConnectionSettings _reConnectionSettings;
 
@@ -206,7 +206,7 @@ namespace StockSharp.Algo
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			var isStartTimer = false;
 
@@ -276,7 +276,7 @@ namespace StockSharp.Algo
 						lock (_timeSync)
 						{
 							if (_currState == ConnectionStates.Disconnecting || _currState == ConnectionStates.Disconnected)
-								return;
+								return true;
 						}
 					}
 
@@ -285,20 +285,21 @@ namespace StockSharp.Algo
 
 				case ExtendedMessageTypes.Reconnect:
 				{
-					OnSendInMessage(new ConnectMessage());
-					return;
+					return OnSendInMessage(new ConnectMessage());
 				}
 			}
 
 			try
 			{
-				base.OnSendInMessage(message);
+				var result = base.OnSendInMessage(message);
 
 				lock (_timeSync)
 				{
 					if (isStartTimer && (_currState == ConnectionStates.Connecting || _currState == ConnectionStates.Connected))
 						StartTimer();
 				}
+
+				return result;
 			}
 			finally
 			{
@@ -507,7 +508,7 @@ namespace StockSharp.Algo
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new HeartbeatMessageAdapter((IMessageAdapter)InnerAdapter.Clone()) { SuppressReconnectingErrors = SuppressReconnectingErrors };
+			return new HeartbeatMessageAdapter(InnerAdapter.TypedClone()) { SuppressReconnectingErrors = SuppressReconnectingErrors };
 		}
 	}
 }

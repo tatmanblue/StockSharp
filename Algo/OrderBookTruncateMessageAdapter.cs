@@ -3,8 +3,10 @@
 	using System.Collections.Generic;
 	using System.Linq;
 
+	using Ecng.Common;
 	using Ecng.Collections;
 
+	using StockSharp.Logging;
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -24,7 +26,7 @@
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -48,16 +50,18 @@
 
 								if (supportedDepth != actualDepth)
 								{
-									mdMsg = (MarketDataMessage)mdMsg.Clone();
+									mdMsg = mdMsg.TypedClone();
 									mdMsg.MaxDepth = supportedDepth;
 
 									_depths.Add(mdMsg.TransactionId, actualDepth);
+
+									this.AddInfoLog("MD truncate {0}/{1} ({2}->{3}).", mdMsg.SecurityId, mdMsg.TransactionId, actualDepth, supportedDepth);
 								}
 							}
 						}
 						else
 						{
-							_depths.Remove(mdMsg.OriginalTransactionId);
+							RemoveSubscription(mdMsg.OriginalTransactionId);
 						}
 					}
 
@@ -65,7 +69,13 @@
 				}
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
+		}
+
+		private void RemoveSubscription(long id)
+		{
+			if (_depths.Remove(id))
+				this.AddInfoLog("Unsubscribed {0}.", id);
 		}
 
 		/// <inheritdoc />
@@ -75,6 +85,20 @@
 
 			switch (message.Type)
 			{
+				case MessageTypes.SubscriptionResponse:
+				{
+					var responseMsg = (SubscriptionResponseMessage)message;
+
+					if (!responseMsg.IsOk())
+						RemoveSubscription(responseMsg.OriginalTransactionId);
+
+					break;
+				}
+				case MessageTypes.SubscriptionFinished:
+				{
+					RemoveSubscription(((SubscriptionFinishedMessage)message).OriginalTransactionId);
+					break;
+				}
 				case MessageTypes.QuoteChange:
 				{
 					var quoteMsg = (QuoteChangeMessage)message;
@@ -89,7 +113,7 @@
 
 						var maxDepth = group.Key.Value;
 
-						var clone = (QuoteChangeMessage)quoteMsg.Clone();
+						var clone = quoteMsg.TypedClone();
 
 						clone.SetSubscriptionIds(group.ToArray());
 
@@ -132,7 +156,7 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new OrderBookTruncateMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new OrderBookTruncateMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

@@ -21,17 +21,16 @@ namespace StockSharp.Algo.Export.Database
 	using Ecng.Common;
 
 	using StockSharp.Algo;
-	using StockSharp.BusinessEntities;
 	using StockSharp.Messages;
 
 	class MarketDepthQuoteTable : Table<TimeQuoteChange>
 	{
-		public MarketDepthQuoteTable(Security security)
-			: base("MarketDepthQuote", CreateColumns(security))
+		public MarketDepthQuoteTable(decimal? priceStep, decimal? volumeStep)
+			: base("MarketDepthQuote", CreateColumns(priceStep, volumeStep))
 		{
 		}
 
-		private static IEnumerable<ColumnDescription> CreateColumns(Security security)
+		private static IEnumerable<ColumnDescription> CreateColumns(decimal? priceStep, decimal? volumeStep)
 		{
 			yield return new ColumnDescription(nameof(SecurityId.SecurityCode))
 			{
@@ -48,14 +47,16 @@ namespace StockSharp.Algo.Export.Database
 			yield return new ColumnDescription(nameof(TimeQuoteChange.Price))
 			{
 				DbType = typeof(decimal),
-				ValueRestriction = new DecimalRestriction { Scale = security.PriceStep?.GetCachedDecimals() ?? 1 }
+				ValueRestriction = new DecimalRestriction { Scale = priceStep?.GetCachedDecimals() ?? 1 }
 			};
 			yield return new ColumnDescription(nameof(TimeQuoteChange.Volume))
 			{
 				DbType = typeof(decimal),
-				ValueRestriction = new DecimalRestriction { Scale = security.VolumeStep?.GetCachedDecimals() ?? 1 }
+				ValueRestriction = new DecimalRestriction { Scale = volumeStep?.GetCachedDecimals() ?? 1 }
 			};
 			yield return new ColumnDescription(nameof(TimeQuoteChange.Side)) { IsPrimaryKey = true, DbType = typeof(int) };
+			yield return new ColumnDescription(nameof(TimeQuoteChange.OrdersCount)) { DbType = typeof(int?) };
+			yield return new ColumnDescription(nameof(TimeQuoteChange.Condition)) { DbType = typeof(byte) };
 			yield return new ColumnDescription(nameof(TimeQuoteChange.ServerTime)) { IsPrimaryKey = true, DbType = typeof(DateTimeOffset) };
 			yield return new ColumnDescription(nameof(TimeQuoteChange.LocalTime)) { DbType = typeof(DateTimeOffset) };
 		}
@@ -69,6 +70,8 @@ namespace StockSharp.Algo.Export.Database
 				{ nameof(TimeQuoteChange.Price), value.Price },
 				{ nameof(TimeQuoteChange.Volume), value.Volume },
 				{ nameof(TimeQuoteChange.Side), (int)value.Side },
+				{ nameof(TimeQuoteChange.OrdersCount), value.OrdersCount },
+				{ nameof(TimeQuoteChange.Condition), (byte)value.Condition },
 				{ nameof(TimeQuoteChange.ServerTime), value.ServerTime },
 				{ nameof(TimeQuoteChange.LocalTime), value.LocalTime },
 			};

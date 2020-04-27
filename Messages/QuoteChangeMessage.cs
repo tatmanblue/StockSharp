@@ -61,7 +61,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[System.Runtime.Serialization.DataContract]
 	[Serializable]
-	public sealed class QuoteChangeMessage : BaseSubscriptionIdMessage, IServerTimeMessage, ISecurityIdMessage
+	public sealed class QuoteChangeMessage : BaseSubscriptionIdMessage<QuoteChangeMessage>, IServerTimeMessage, ISecurityIdMessage
 	{
 		/// <inheritdoc />
 		[DataMember]
@@ -145,6 +145,12 @@ namespace StockSharp.Messages
 		public QuoteChangeStates? State { get; set; }
 
 		/// <summary>
+		/// Determines a <see cref="QuoteChange.StartPosition"/> initialized.
+		/// </summary>
+		[DataMember]
+		public bool HasPositions { get; set; }
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="QuoteChangeMessage"/>.
 		/// </summary>
 		public QuoteChangeMessage()
@@ -152,34 +158,27 @@ namespace StockSharp.Messages
 		{
 		}
 
-		/// <summary>
-		/// Create a copy of <see cref="QuoteChangeMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
+		/// <inheritdoc />
+		public override void CopyTo(QuoteChangeMessage destination)
 		{
-			var clone = new QuoteChangeMessage
-			{
-				SecurityId = SecurityId,
-				Bids = Bids.Select(q => q.Clone()).ToArray(),
-				Asks = Asks.Select(q => q.Clone()).ToArray(),
-				ServerTime = ServerTime,
-				IsSorted = IsSorted,
-				Currency = Currency,
-				IsByLevel1 = IsByLevel1,
-				IsFiltered = IsFiltered,
-				State = State,
-			};
+			base.CopyTo(destination);
 
-			CopyTo(clone);
-
-			return clone;
+			destination.SecurityId = SecurityId;
+			destination.Bids = Bids.Select(q => q.Clone()).ToArray();
+			destination.Asks = Asks.Select(q => q.Clone()).ToArray();
+			destination.ServerTime = ServerTime;
+			destination.IsSorted = IsSorted;
+			destination.Currency = Currency;
+			destination.IsByLevel1 = IsByLevel1;
+			destination.IsFiltered = IsFiltered;
+			destination.State = State;
+			destination.HasPositions = HasPositions;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",T(S)={ServerTime:yyyy/MM/dd HH:mm:ss.fff}";
+			return base.ToString() + $",T(S)={ServerTime:yyyy/MM/dd HH:mm:ss.fff},B={Bids.Length},A={Asks.Length}";
 		}
 	}
 }

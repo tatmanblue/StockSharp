@@ -70,7 +70,15 @@ namespace StockSharp.Algo
 		/// Initializes a new instance of the <see cref="Connector"/>.
 		/// </summary>
 		public Connector()
-			: this(true)
+			: this(null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="Connector"/>.
+		/// </summary>
+		public Connector(StorageBuffer buffer)
+			: this(true, buffer: buffer)
 		{
 		}
 
@@ -80,14 +88,13 @@ namespace StockSharp.Algo
 		/// <param name="entityRegistry">The storage of trade objects.</param>
 		/// <param name="storageRegistry">The storage of market data.</param>
 		/// <param name="snapshotRegistry">Snapshot storage registry.</param>
+		/// <param name="buffer">Storage buffer.</param>
 		/// <param name="initManagers">Initialize managers.</param>
 		public Connector(IEntityRegistry entityRegistry, IStorageRegistry storageRegistry, SnapshotRegistry snapshotRegistry,
-			bool initManagers = true)
-			: this(entityRegistry.Securities, entityRegistry.PositionStorage, storageRegistry, snapshotRegistry, initManagers)
+			StorageBuffer buffer = null, bool initManagers = true)
+			: this(entityRegistry.Securities, entityRegistry.PositionStorage, storageRegistry, snapshotRegistry, buffer, initManagers)
 		{
-#pragma warning disable 612
 			EntityRegistry = entityRegistry;
-#pragma warning restore 612
 		}
 
 		/// <summary>
@@ -97,11 +104,12 @@ namespace StockSharp.Algo
 		/// <param name="positionStorage">Position storage.</param>
 		/// <param name="storageRegistry">The storage of market data.</param>
 		/// <param name="snapshotRegistry">Snapshot storage registry.</param>
+		/// <param name="buffer">Storage buffer.</param>
 		/// <param name="initManagers">Initialize managers.</param>
 		public Connector(ISecurityStorage securityStorage, IPositionStorage positionStorage,
 			IStorageRegistry storageRegistry, SnapshotRegistry snapshotRegistry,
-			bool initManagers = true)
-			: this(false, true, storageRegistry, snapshotRegistry, initManagers)
+			StorageBuffer buffer = null, bool initManagers = true)
+			: this(false, true, storageRegistry, snapshotRegistry, buffer, initManagers)
 		{
 			_entityCache.ExchangeInfoProvider = storageRegistry.ExchangeInfoProvider;
 
@@ -120,19 +128,20 @@ namespace StockSharp.Algo
 		/// <param name="initChannels">Initialize channels.</param>
 		/// <param name="storageRegistry">The storage of market data.</param>
 		/// <param name="snapshotRegistry">Snapshot storage registry.</param>
+		/// <param name="buffer">Storage buffer.</param>
 		/// <param name="initManagers">Initialize managers.</param>
 		protected Connector(bool initAdapter, bool initChannels = true,
 			IStorageRegistry storageRegistry = null, SnapshotRegistry snapshotRegistry = null,
-			bool initManagers = true)
+			StorageBuffer buffer = null, bool initManagers = true)
 		{
+			Buffer = buffer;
+
 			_entityCache = new EntityCache(this)
 			{
 				ExchangeInfoProvider = new InMemoryExchangeInfoProvider()
 			};
 
 			_subscriptionManager = new SubscriptionManager(this);
-
-			UpdateSecurityLastQuotes = UpdateSecurityByLevel1 = UpdateSecurityByDefinition = true;
 
 			SupportLevel1DepthBuilder = true;
 			SupportFilteredMarketDepth = true;
@@ -158,7 +167,6 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// The storage of trade objects.
 		/// </summary>
-		[Obsolete]
 		public IEntityRegistry EntityRegistry { get; }
 
 		/// <summary>
@@ -174,12 +182,12 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// The storage of market data.
 		/// </summary>
-		public IStorageRegistry StorageRegistry => Adapter?.StorageRegistry;
+		public IStorageRegistry StorageRegistry => Adapter?.StorageSettings.StorageRegistry;
 
 		/// <summary>
 		/// Snapshot storage registry.
 		/// </summary>
-		public SnapshotRegistry SnapshotRegistry => Adapter?.SnapshotRegistry;
+		public SnapshotRegistry SnapshotRegistry { get; private set; }
 
 		private IBasketSecurityProcessorProvider _basketSecurityProcessorProvider = new BasketSecurityProcessorProvider();
 
@@ -214,7 +222,11 @@ namespace StockSharp.Algo
 
 		private void InitAdapter(IStorageRegistry storageRegistry, SnapshotRegistry snapshotRegistry)
 		{
-			Adapter = new BasketMessageAdapter(new MillisecondIncrementalIdGenerator(), new InMemorySecurityMessageAdapterProvider(), new InMemoryPortfolioMessageAdapterProvider(), new CandleBuilderProvider(_entityCache.ExchangeInfoProvider), storageRegistry, snapshotRegistry);
+			SnapshotRegistry = snapshotRegistry;
+			Adapter = new BasketMessageAdapter(new MillisecondIncrementalIdGenerator(), new CandleBuilderProvider(_entityCache.ExchangeInfoProvider), new InMemorySecurityMessageAdapterProvider(), new InMemoryPortfolioMessageAdapterProvider())
+			{
+				StorageSettings = { StorageRegistry = storageRegistry }
+			};
 		}
 
 		/// <summary>
@@ -365,7 +377,7 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// Risk control manager.
 		/// </summary>
-		public IRiskManager RiskManager { get; set; }
+		public virtual IRiskManager RiskManager { get; set; }
 
 		/// <summary>
 		/// Orders registration delay calculation manager.
@@ -431,17 +443,17 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// To update <see cref="Security.LastTrade"/>, <see cref="Security.BestBid"/>, <see cref="Security.BestAsk"/> at each update of order book and/or trades. By default is enabled.
 		/// </summary>
-		public bool UpdateSecurityLastQuotes { get; set; }
+		public bool UpdateSecurityLastQuotes { get; set; } = true;
 
 		/// <summary>
 		/// To update <see cref="Security"/> fields when the <see cref="Level1ChangeMessage"/> message appears. By default is enabled.
 		/// </summary>
-		public bool UpdateSecurityByLevel1 { get; set; }
+		public bool UpdateSecurityByLevel1 { get; set; } = true;
 
 		/// <summary>
 		/// To update <see cref="Security"/> fields when the <see cref="SecurityMessage"/> message appears. By default is enabled.
 		/// </summary>
-		public bool UpdateSecurityByDefinition { get; set; }
+		public bool UpdateSecurityByDefinition { get; set; } = true;
 
 		/// <summary>
 		/// To update the order book for the instrument when the <see cref="Level1ChangeMessage"/> message appears. By default is enabled.
@@ -1201,9 +1213,9 @@ namespace StockSharp.Algo
 
 			TradesKeepCount = storage.GetValue(nameof(TradesKeepCount), TradesKeepCount);
 			OrdersKeepCount = storage.GetValue(nameof(OrdersKeepCount), OrdersKeepCount);
-			UpdateSecurityLastQuotes = storage.GetValue(nameof(UpdateSecurityLastQuotes), true);
-			UpdateSecurityByLevel1 = storage.GetValue(nameof(UpdateSecurityByLevel1), true);
-			UpdateSecurityByDefinition = storage.GetValue(nameof(UpdateSecurityByDefinition), true);
+			UpdateSecurityLastQuotes = storage.GetValue(nameof(UpdateSecurityLastQuotes), UpdateSecurityLastQuotes);
+			UpdateSecurityByLevel1 = storage.GetValue(nameof(UpdateSecurityByLevel1), UpdateSecurityByLevel1);
+			UpdateSecurityByDefinition = storage.GetValue(nameof(UpdateSecurityByDefinition), UpdateSecurityByDefinition);
 			//ReConnectionSettings.Load(storage.GetValue<SettingsStorage>(nameof(ReConnectionSettings)));
 			OverrideSecurityData = storage.GetValue(nameof(OverrideSecurityData), OverrideSecurityData);
 
@@ -1221,6 +1233,9 @@ namespace StockSharp.Algo
 			IsRestoreSubscriptionOnNormalReconnect = storage.GetValue(nameof(IsRestoreSubscriptionOnNormalReconnect), IsRestoreSubscriptionOnNormalReconnect);
 			IsAutoUnSubscribeOnDisconnect = storage.GetValue(nameof(IsAutoUnSubscribeOnDisconnect), IsAutoUnSubscribeOnDisconnect);
 			IsAutoPortfoliosSubscribe = storage.GetValue(nameof(IsAutoPortfoliosSubscribe), IsAutoPortfoliosSubscribe);
+
+			if (Buffer != null && storage.ContainsKey(nameof(Buffer)))
+				Buffer.ForceLoad(storage.GetValue<SettingsStorage>(nameof(Buffer)));
 
 			base.Load(storage);
 		}
@@ -1253,6 +1268,9 @@ namespace StockSharp.Algo
 			storage.SetValue(nameof(IsRestoreSubscriptionOnNormalReconnect), IsRestoreSubscriptionOnNormalReconnect);
 			storage.SetValue(nameof(IsAutoUnSubscribeOnDisconnect), IsAutoUnSubscribeOnDisconnect);
 			storage.SetValue(nameof(IsAutoPortfoliosSubscribe), IsAutoPortfoliosSubscribe);
+
+			if (Buffer != null)
+				storage.SetValue(nameof(Buffer), Buffer.Save());
 
 			base.Save(storage);
 		}
@@ -1317,6 +1335,14 @@ namespace StockSharp.Algo
 		void IMessageChannel.Close()
 		{
 			Disconnect();
+		}
+
+		void IMessageChannel.Suspend()
+		{
+		}
+
+		void IMessageChannel.Resume()
+		{
 		}
 
 		IMessageChannel ICloneable<IMessageChannel>.Clone()

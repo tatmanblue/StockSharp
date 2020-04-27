@@ -17,6 +17,8 @@ namespace StockSharp.Algo.Latency
 {
 	using System;
 
+	using Ecng.Common;
+
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -45,13 +47,13 @@ namespace StockSharp.Algo.Latency
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			message.TryInitLocalTime(this);
 
 			LatencyManager.ProcessMessage(message);
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -84,7 +86,7 @@ namespace StockSharp.Algo.Latency
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new LatencyMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new LatencyMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

@@ -37,22 +37,13 @@ namespace StockSharp.Algo.Storages.Csv
 		{
 		}
 
-		/// <summary>
-		/// To create empty meta-information.
-		/// </summary>
-		/// <param name="date">Date.</param>
-		/// <returns>Meta-information on data for one day.</returns>
+		/// <inheritdoc />
 		public override IMarketDataMetaInfo CreateMetaInfo(DateTime date)
 		{
 			return new CsvMetaInfo(date, Encoding, r => r.ReadNullableLong());
 		}
 
-		/// <summary>
-		/// Write data to the specified writer.
-		/// </summary>
-		/// <param name="writer">CSV writer.</param>
-		/// <param name="data">Data.</param>
-		/// <param name="metaInfo">Meta-information on data for one day.</param>
+		/// <inheritdoc />
 		protected override void Write(CsvFileWriter writer, ExecutionMessage data, IMarketDataMetaInfo metaInfo)
 		{
 			writer.WriteRow(new[]
@@ -64,22 +55,20 @@ namespace StockSharp.Algo.Storages.Csv
 				data.TradeVolume.ToString(),
 				data.OriginSide.ToString(),
 				data.OpenInterest.ToString(),
-				data.IsSystem.ToString()
+				data.IsSystem.ToString(),
+				data.IsUpTick.ToString(),
+				data.TradeStringId,
+				data.Currency.ToString(),
 			});
 
 			metaInfo.LastTime = data.ServerTime.UtcDateTime;
 			metaInfo.LastId = data.TradeId;
 		}
 
-		/// <summary>
-		/// Read data from the specified reader.
-		/// </summary>
-		/// <param name="reader">CSV reader.</param>
-		/// <param name="metaInfo">Meta-information on data for one day.</param>
-		/// <returns>Data.</returns>
+		/// <inheritdoc />
 		protected override ExecutionMessage Read(FastCsvReader reader, IMarketDataMetaInfo metaInfo)
 		{
-			return new ExecutionMessage
+			var execMsg = new ExecutionMessage
 			{
 				SecurityId = SecurityId,
 				ExecutionType = ExecutionTypes.Tick,
@@ -91,6 +80,15 @@ namespace StockSharp.Algo.Storages.Csv
 				OpenInterest = reader.ReadNullableDecimal(),
 				IsSystem = reader.ReadNullableBool(),
 			};
+
+			if ((reader.ColumnCurr + 1) < reader.ColumnCount)
+			{
+				execMsg.IsUpTick = reader.ReadNullableBool();
+				execMsg.TradeStringId = reader.ReadString();
+				execMsg.Currency = reader.ReadNullableEnum<CurrencyTypes>();
+			}
+
+			return execMsg;
 		}
 	}
 }

@@ -11,6 +11,7 @@
 	using System.Windows.Media;
 
 	using DevExpress.Xpf.Core;
+	using DXTheme = DevExpress.Xpf.Core.Theme;
 
 	using MoreLinq;
 
@@ -21,6 +22,7 @@
 	using Ecng.Configuration;
 	using Ecng.Xaml;
 	using Ecng.Xaml.Charting.Visuals.Annotations;
+	using Ecng.Xaml.DevExp.Yandex;
 
 	using StockSharp.Algo;
 	using StockSharp.Algo.Candles;
@@ -33,8 +35,9 @@
 	using StockSharp.Logging;
 	using StockSharp.Messages;
 	using StockSharp.Xaml.Charting;
+    using StockSharp.Xaml;
 
-	public partial class MainWindow
+    public partial class MainWindow
 	{
 		private ChartArea _areaComb;
 		private ChartCandleElement _candleElement;
@@ -98,6 +101,9 @@
 
 			ConfigManager.RegisterService<IMarketDataProvider>(_testMdProvider);
 			ConfigManager.RegisterService<ISecurityProvider>(_securityProvider);
+
+			Theme.ItemsSource = DXTheme.Themes.Where(t => t.ShowInThemeSelector);
+			ThemeExtensions.ApplyDefaultTheme();
 		}
 
 		private void HistoryPath_OnFolderChanged(string path)
@@ -126,9 +132,9 @@
 				MessageBox.Show($"RegisterOrder: sec={order.Security.Id}, {order.Direction} {order.Volume}@{order.Price}");
 			};
 
-			ConfigManager.RegisterService<IBackupService>(new YandexDiskService());
+			ConfigManager.RegisterService<IBackupService>(new YandexDiskService(YandexLoginWindow.Authorize(this)));
 
-			HistoryPath.Folder = @"..\..\..\..\Testing\HistoryData\".ToFullPath();
+			HistoryPath.Folder = StockSharp.Samples.HistoryDataHelper.DataPath;
 
 			Chart.SecurityProvider = _securityProvider;
 
@@ -146,11 +152,11 @@
 
 		private void OnThemeSelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
-			var theme = (string)((ComboBoxItem)Theme.SelectedValue).Content;
-			if (theme.IsEmpty())
+			var theme = (DXTheme)Theme.SelectedItem;
+			if (theme == null)
 				return;
 
-			ApplicationThemeHelper.ApplicationThemeName = theme;
+			ApplicationThemeHelper.ApplicationThemeName = theme.Name;
 		}
 
 		private void Chart_OnSubscribeCandleElement(ChartCandleElement el, CandleSeries ser)
@@ -268,7 +274,7 @@
 			_holder.CreateCandleSeries(_transactionId, series);
 
 			_candleTransform.Process(new ResetMessage());
-			_candleBuilder = _builderProvider.Get(msgType.ToCandleMarketDataType());
+			_candleBuilder = _builderProvider.Get(msgType);
 
 			var storage = new StorageRegistry();
 
@@ -301,7 +307,7 @@
 							foreach (var candle in candles)
 							{
 								_currCandle = candle;
-								_updatedCandles.Add((CandleMessage)candle.Clone());
+								_updatedCandles.Add(candle.TypedClone());
 							}
 						}
 
@@ -435,7 +441,7 @@
 					foreach (var candle in candles)
 					{
 						_currCandle = candle;
-						_updatedCandles.Add((CandleMessage)candle.Clone());
+						_updatedCandles.Add(candle.TypedClone());
 					}
 				}
 			}
@@ -715,7 +721,7 @@
 			}
 		}
 
-		class TestMarketDataProvider : IMarketDataProviderEx
+		private class TestMarketDataProvider : IMarketDataProviderEx
 		{
 			public event Action<Security, IEnumerable<KeyValuePair<Level1Fields, object>>, DateTimeOffset, DateTimeOffset> ValuesChanged;
 
@@ -811,7 +817,7 @@
 			Subscription IMarketDataProviderEx.RegisterFilteredMarketDepth(Security security) => null;
 			void IMarketDataProviderEx.UnRegisterFilteredMarketDepth(Security security) { }
 
-			Subscription IMarketDataProviderEx.SubscribeMarketDepth(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, int? maxDepth, IMessageAdapter adapter) => null;
+			Subscription IMarketDataProviderEx.SubscribeMarketDepth(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, int? maxDepth, TimeSpan? refreshSpeed, IOrderLogMarketDepthBuilder depthBuilder, IMessageAdapter adapter) => null;
 			void IMarketDataProviderEx.UnSubscribeMarketDepth(Security security) { }
 
 			Subscription IMarketDataProviderEx.SubscribeTrades(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, IMessageAdapter adapter) => null;

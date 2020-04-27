@@ -40,11 +40,11 @@ namespace StockSharp.Algo.Storages.Binary
 
 			public void Write(Stream stream)
 			{
-				stream.Write(FirstDateTime);
-				stream.Write(LastDateTime);
+				stream.WriteEx(FirstDateTime);
+				stream.WriteEx(LastDateTime);
 
-				stream.Write(FirstDateOffset);
-				stream.Write(LastDateOffset);
+				stream.WriteEx(FirstDateOffset);
+				stream.WriteEx(LastDateOffset);
 			}
 
 			public void Read(Stream stream)
@@ -216,8 +216,8 @@ namespace StockSharp.Algo.Storages.Binary
 			Write(stream, AccruedCouponIncome);
 			Write(stream, Yield);
 
-			stream.Write(FirstFieldTime);
-			stream.Write(LastFieldTime);
+			stream.WriteEx(FirstFieldTime);
+			stream.WriteEx(LastFieldTime);
 
 			if (Version < MarketDataVersions.Version47)
 				return;
@@ -264,7 +264,7 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version53)
 				return;
 
-			stream.Write(ServerOffset);
+			stream.WriteEx(ServerOffset);
 
 			if (Version < MarketDataVersions.Version54)
 				return;
@@ -288,7 +288,7 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version58)
 				return;
 
-			stream.Write((int)MaxKnownType);
+			stream.WriteEx((int)MaxKnownType);
 
 			if (Version < MarketDataVersions.Version59)
 				return;
@@ -436,8 +436,8 @@ namespace StockSharp.Algo.Storages.Binary
 
 		private static void Write(Stream stream, RefPair<decimal, decimal> info)
 		{
-			stream.Write(info.First);
-			stream.Write(info.Second);
+			stream.WriteEx(info.First);
+			stream.WriteEx(info.Second);
 		}
 
 		private static RefPair<decimal, decimal> ReadInfo(Stream stream)
@@ -546,7 +546,7 @@ namespace StockSharp.Algo.Storages.Binary
 		};
 
 		public Level1BinarySerializer(SecurityId securityId, IExchangeInfoProvider exchangeInfoProvider)
-			: base(securityId, 50, MarketDataVersions.Version61, exchangeInfoProvider)
+			: base(securityId, null, 50, MarketDataVersions.Version61, exchangeInfoProvider)
 		{
 		}
 
@@ -823,6 +823,8 @@ namespace StockSharp.Algo.Storages.Binary
 						case Level1Fields.HighBidPrice:
 						case Level1Fields.LowAskPrice:
 						case Level1Fields.SpreadMiddle:
+						case Level1Fields.LowBidPrice:
+						case Level1Fields.HighAskPrice:
 						{
 							SerializePrice(writer, metaInfo, (decimal)value, useLong, nonAdjustPrice);
 							break;
@@ -841,6 +843,9 @@ namespace StockSharp.Algo.Storages.Binary
 						case Level1Fields.BestBidVolume:
 						case Level1Fields.BestAskVolume:
 						case Level1Fields.MinVolume:
+						case Level1Fields.MaxVolume:
+						case Level1Fields.LastTradeVolumeLow:
+						case Level1Fields.LastTradeVolumeHigh:
 						{
 							writer.WriteVolume((decimal)value, metaInfo, SecurityId);
 							break;
@@ -1378,6 +1383,8 @@ namespace StockSharp.Algo.Storages.Binary
 					case Level1Fields.HighBidPrice:
 					case Level1Fields.LowAskPrice:
 					case Level1Fields.SpreadMiddle:
+					case Level1Fields.LowBidPrice:
+					case Level1Fields.HighAskPrice:
 					{
 						var price = DeserializePrice(reader, metaInfo, useLong, nonAdjustPrice);
 						l1Msg.Add(field, price);
@@ -1400,6 +1407,9 @@ namespace StockSharp.Algo.Storages.Binary
 					case Level1Fields.BestBidVolume:
 					case Level1Fields.BestAskVolume:
 					case Level1Fields.MinVolume:
+					case Level1Fields.MaxVolume:
+					case Level1Fields.LastTradeVolumeLow:
+					case Level1Fields.LastTradeVolumeHigh:
 					{
 						l1Msg.Add(field, reader.ReadVolume(metaInfo));
 						break;

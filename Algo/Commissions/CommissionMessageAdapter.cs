@@ -17,6 +17,8 @@ namespace StockSharp.Algo.Commissions
 {
 	using System;
 
+	using Ecng.Common;
+
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -45,10 +47,10 @@ namespace StockSharp.Algo.Commissions
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			CommissionManager.Process(message);
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -66,7 +68,7 @@ namespace StockSharp.Algo.Commissions
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new CommissionMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new CommissionMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

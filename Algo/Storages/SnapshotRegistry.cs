@@ -69,38 +69,50 @@ namespace StockSharp.Algo.Storages
 					{
 						Debug.WriteLine($"Snapshot (Load): {_fileName}");
 
-						using (var stream = File.OpenRead(_fileName))
+						try
 						{
-							_version = new Version(stream.ReadByte(), stream.ReadByte());
-
-							while (stream.Position < stream.Length)
+							using (var stream = File.OpenRead(_fileName))
 							{
-								var size = stream.Read<int>();
+								_version = new Version(stream.ReadByte(), stream.ReadByte());
 
-								var buffer = new byte[size];
-								stream.ReadBytes(buffer, buffer.Length);
+								if (_version > _serializer.Version)
+									new InvalidOperationException(LocalizedStrings.StorageVersionNewerKey.Put(_fileName, _version, _serializer.Version)).LogError();
 
-								//var offset = stream.Position;
-
-								TMessage message;
-
-								try
+								while (stream.Position < stream.Length)
 								{
-									message = _serializer.Deserialize(_version, buffer);
-								}
-								catch (Exception ex)
-								{
-									ex.LogError();
-									continue;
+									var size = stream.Read<int>();
+
+									var buffer = new byte[size];
+									stream.ReadBytes(buffer, buffer.Length);
+
+									//var offset = stream.Position;
+
+									TMessage message;
+
+									try
+									{
+										message = _serializer.Deserialize(_version, buffer);
+									}
+									catch (Exception ex)
+									{
+										ex.LogError();
+										continue;
+									}
+
+									var key = _serializer.GetKey(message);
+
+									_snapshots.Add(key, message);
+									_buffers.Add(key, buffer);
 								}
 
-								var key = _serializer.GetKey(message);
-
-								_snapshots.Add(key, message);
-								_buffers.Add(key, buffer);
+								//_currOffset = stream.Length;
 							}
-
-							//_currOffset = stream.Length;
+						}
+						catch (Exception ex)
+						{
+							Debug.WriteLine($"Snapshot (ERROR): {ex.Message}");
+							ex.LogError();
+							File.Delete(_fileName);
 						}
 					}
 					else
@@ -179,7 +191,7 @@ namespace StockSharp.Algo.Storages
 								return false;
 
 							return true;
-						}).Select(m => (TMessage)m.Clone()).ToArray();
+						}).Select(m => m.TypedClone()).ToArray();
 					}
 				}
 
@@ -216,14 +228,14 @@ namespace StockSharp.Algo.Storages
 
 					Debug.WriteLine($"Snapshot (Save): {_fileName}");
 
-					using (var stream = new FileStream(_fileName, FileMode.Create, FileAccess.Write))
+					using (var stream = new TransactionFileStream(_fileName, FileMode.Create))
 					{
 						stream.WriteByte((byte)_version.Major);
 						stream.WriteByte((byte)_version.Minor);
 
 						foreach (var buffer in buffers)
 						{
-							stream.Write(buffer);
+							stream.WriteEx(buffer);
 						}
 					}
 				}
@@ -502,7 +514,7 @@ namespace StockSharp.Algo.Storages
 					var errors = _snapshotStorages.CachedValues.SelectMany(s => s.FlushChanges()).ToArray();
 
 					if (errors.Length > 0)
-						throw new AggregateException(errors);
+						throw errors.SingleOrAggr();
 				}
 				catch (Exception ex)
 				{

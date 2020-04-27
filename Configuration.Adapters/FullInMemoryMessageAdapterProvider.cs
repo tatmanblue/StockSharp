@@ -19,7 +19,7 @@ namespace StockSharp.Configuration
 	using StockSharp.BitStamp;
 	using StockSharp.Bittrex;
 	using StockSharp.BitZ;
-	using StockSharp.Blackwood;
+	//using StockSharp.Blackwood;
 	using StockSharp.Btce;
 	using StockSharp.BW;
 	using StockSharp.Cex;
@@ -70,9 +70,10 @@ namespace StockSharp.Configuration
 	using StockSharp.Oanda;
 	using StockSharp.Okcoin;
 	using StockSharp.Okex;
-	using StockSharp.OpenECry;
+	//using StockSharp.OpenECry;
 	using StockSharp.Plaza;
 	using StockSharp.Poloniex;
+	using StockSharp.PrizmBit;
 	using StockSharp.Quandl;
 	using StockSharp.QuantHouse;
 	//using StockSharp.Quik;
@@ -94,6 +95,7 @@ namespace StockSharp.Configuration
 	using StockSharp.Yobit;
 	using StockSharp.Zaif;
 	using StockSharp.ZB;
+	using StockSharp.DigitexFutures;
 
 	/// <summary>
 	/// In memory configuration message adapter's provider.
@@ -139,7 +141,7 @@ namespace StockSharp.Configuration
 			(Func<Type>)(() => typeof(AlfaDirectMessageAdapter)),
 			() => typeof(BarChartMessageAdapter),
 			() => typeof(BitStampMessageAdapter),
-			() => typeof(BlackwoodMessageAdapter),
+			//() => typeof(BlackwoodMessageAdapter),
 			() => typeof(BtceMessageAdapter),
 			() => typeof(CqgComMessageAdapter),
 			() => typeof(CqgContinuumMessageAdapter),
@@ -152,7 +154,7 @@ namespace StockSharp.Configuration
 			() => typeof(LmaxMessageAdapter),
 			() => typeof(MicexMessageAdapter),
 			() => typeof(OandaMessageAdapter),
-			() => typeof(OpenECryMessageAdapter),
+			//() => typeof(OpenECryMessageAdapter),
 			() => typeof(PlazaMessageAdapter),
 			() => typeof(LuaFixTransactionMessageAdapter),
 			() => typeof(LuaFixMarketDataMessageAdapter),
@@ -228,6 +230,8 @@ namespace StockSharp.Configuration
 			() => typeof(HotbitMessageAdapter),
 			() => typeof(CoinHubMessageAdapter),
 			() => typeof(BitalongMessageAdapter),
+			() => typeof(PrizmBitMessageAdapter),
+			() => typeof(DigitexFuturesMessageAdapter),
 		});
 	}
 }

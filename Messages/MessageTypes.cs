@@ -107,7 +107,7 @@ namespace StockSharp.Messages
 		PositionChange,
 
 		/// <summary>
-		/// <see cref="PortfolioChangeMessage"/>.
+		/// Obsolete.
 		/// </summary>
 		[Obsolete]
 		PortfolioChange,
@@ -144,8 +144,9 @@ namespace StockSharp.Messages
 		PortfolioLookup,
 
 		/// <summary>
-		/// <see cref="SecurityLookupResultMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		SecurityLookupResult,
 
 		/// <summary>
@@ -169,8 +170,9 @@ namespace StockSharp.Messages
 		Board,
 
 		/// <summary>
-		/// <see cref="PortfolioLookupResultMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		PortfolioLookupResult,
 
 		/// <summary>
@@ -235,8 +237,9 @@ namespace StockSharp.Messages
 		UserLookup,
 
 		/// <summary>
-		/// <see cref="UserLookupResultMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		UserLookupResult,
 
 		/// <summary>
@@ -251,8 +254,9 @@ namespace StockSharp.Messages
 		BoardLookup,
 
 		/// <summary>
-		/// <see cref="BoardLookupResultMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		BoardLookupResult,
 
 		/// <summary>
@@ -266,9 +270,9 @@ namespace StockSharp.Messages
 		TimeFrameLookup,
 
 		/// <summary>
-		/// <see cref="TimeFrameLookupResultMessage"/>.
+		/// <see cref="TimeFrameInfoMessage"/>.
 		/// </summary>
-		TimeFrameLookupResult,
+		TimeFrameInfo,
 
 		/// <summary>
 		/// <see cref="SecurityMappingRequestMessage"/>.
@@ -276,9 +280,9 @@ namespace StockSharp.Messages
 		SecurityMappingRequest,
 
 		/// <summary>
-		/// <see cref="SecurityMappingResultMessage"/>.
+		/// <see cref="SecurityMappingInfoMessage"/>.
 		/// </summary>
-		SecurityMappingResult,
+		SecurityMappingInfo,
 
 		/// <summary>
 		/// <see cref="SecurityLegsRequestMessage"/>.
@@ -286,9 +290,9 @@ namespace StockSharp.Messages
 		SecurityLegsRequest,
 
 		/// <summary>
-		/// <see cref="SecurityLegsResultMessage"/>.
+		/// <see cref="SecurityLegsInfoMessage"/>.
 		/// </summary>
-		SecurityLegsResult,
+		SecurityLegsInfo,
 
 		/// <summary>
 		/// <see cref="AdapterListRequestMessage"/>.
@@ -296,14 +300,15 @@ namespace StockSharp.Messages
 		AdapterListRequest,
 
 		/// <summary>
-		/// <see cref="AdapterListFinishedMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		AdapterListFinished,
 
 		/// <summary>
-		/// <see cref="AdapterCommandMessage"/>.
+		/// <see cref="CommandMessage"/>.
 		/// </summary>
-		AdapterCommand,
+		Command,
 
 		/// <summary>
 		/// <see cref="AdapterResponseMessage"/>.
@@ -316,8 +321,9 @@ namespace StockSharp.Messages
 		SubscriptionListRequest,
 
 		/// <summary>
-		/// <see cref="SubscriptionListFinishedMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		SubscriptionListFinished,
 
 		/// <summary>
@@ -331,8 +337,9 @@ namespace StockSharp.Messages
 		SecurityRoute,
 
 		/// <summary>
-		/// <see cref="SecurityRouteListFinishedMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		SecurityRouteListFinished,
 
 		/// <summary>
@@ -346,8 +353,9 @@ namespace StockSharp.Messages
 		PortfolioRoute,
 
 		/// <summary>
-		/// <see cref="PortfolioRouteListFinishedMessage"/>.
+		/// Obsolete.
 		/// </summary>
+		[Obsolete]
 		PortfolioRouteListFinished,
 
 		/// <summary>
@@ -364,6 +372,11 @@ namespace StockSharp.Messages
 		/// <see cref="SubscriptionResponseMessage"/>.
 		/// </summary>
 		SubscriptionResponse,
+
+		/// <summary>
+		/// <see cref="HeikinAshiCandleMessage"/>.
+		/// </summary>
+		CandleHeikinAshi,
 	}
 
 	/// <summary>

@@ -276,7 +276,7 @@ namespace StockSharp.Algo.Strategies
 			var settings = storage.GetValue<SettingsStorage>("Settings");
 			if (settings != null && settings.Count != 0)
 			{
-				var connector = strategy.Connector ?? ServicesRegistry.IConnector;
+				var connector = strategy.Connector ?? ServicesRegistry.Connector;
 
 				if (connector != null && settings.Contains("security"))
 					strategy.Security = connector.LookupById(settings.GetValue<string>("security"));
@@ -404,10 +404,11 @@ namespace StockSharp.Algo.Strategies
 			if (array.IsEmpty())
 				throw new ArgumentOutOfRangeException(nameof(orders));
 
-			using (var connector = new RealTimeEmulationTrader<HistoryMessageAdapter>(new HistoryMessageAdapter(new IncrementalIdGenerator(), new CollectionSecurityProvider(array.Select(o => o.Security).Distinct()))
+			var secProvider = new CollectionSecurityProvider(array.Select(o => o.Security).Distinct());
+			using (var connector = new RealTimeEmulationTrader<HistoryMessageAdapter>(new HistoryMessageAdapter(new IncrementalIdGenerator(), secProvider)
 			{
 				StorageRegistry = storageRegistry
-			}))
+			}, secProvider))
 			{
 				var from = array.Min(o => o.Time);
 				var to = from.EndOfDay();
@@ -927,7 +928,7 @@ namespace StockSharp.Algo.Strategies
 		/// Convert <see cref="Type"/> to <see cref="StrategyTypeMessage"/>.
 		/// </summary>
 		/// <param name="strategyType">Strategy type.</param>
-		/// <param name="transactionId">ID of the original message <see cref="StrategyLookupMessage.TransactionId"/> for which this message is a response.</param>
+		/// <param name="transactionId">ID of the original message <see cref="ITransactionIdMessage.TransactionId"/> for which this message is a response.</param>
 		/// <returns>The message contains information about strategy type.</returns>
 		public static StrategyTypeMessage ToTypeMessage(this Type strategyType, long transactionId = 0)
 		{

@@ -44,10 +44,10 @@ namespace StockSharp.Algo.Storages.Binary
 		{
 			base.Write(stream);
 
-			stream.Write(FirstId);
-			stream.Write(PrevId);
-			stream.Write(FirstPrice);
-			stream.Write(LastPrice);
+			stream.WriteEx(FirstId);
+			stream.WriteEx(PrevId);
+			stream.WriteEx(FirstPrice);
+			stream.WriteEx(LastPrice);
 
 			WriteFractionalPrice(stream);
 			WriteFractionalVolume(stream);
@@ -57,7 +57,7 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version50)
 				return;
 
-			stream.Write(ServerOffset);
+			stream.WriteEx(ServerOffset);
 
 			if (Version < MarketDataVersions.Version54)
 				return;
@@ -104,7 +104,7 @@ namespace StockSharp.Algo.Storages.Binary
 	class TickBinarySerializer : BinaryMarketDataSerializer<ExecutionMessage, TickMetaInfo>
 	{
 		public TickBinarySerializer(SecurityId securityId, IExchangeInfoProvider exchangeInfoProvider)
-			: base(securityId, 50, MarketDataVersions.Version56, exchangeInfoProvider)
+			: base(securityId, ExecutionTypes.Tick, 50, MarketDataVersions.Version57, exchangeInfoProvider)
 		{
 		}
 
@@ -250,6 +250,11 @@ namespace StockSharp.Algo.Storages.Binary
 
 				if (msg.Currency != null)
 					writer.WriteInt((int)msg.Currency.Value);
+
+				if (metaInfo.Version < MarketDataVersions.Version57)
+					continue;
+
+				writer.WriteStringEx(msg.TradeStringId);
 			}
 		}
 
@@ -347,6 +352,9 @@ namespace StockSharp.Algo.Storages.Binary
 				if (reader.Read())
 					msg.Currency = (CurrencyTypes)reader.ReadInt();
 			}
+
+			if (metaInfo.Version >= MarketDataVersions.Version57)
+				msg.TradeStringId = reader.ReadStringEx();
 
 			return msg;
 		}

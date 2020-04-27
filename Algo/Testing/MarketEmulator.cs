@@ -94,7 +94,7 @@ namespace StockSharp.Algo.Testing
 	}
 
 	/// <summary>
-	/// Paper trading.
+	/// Emulator.
 	/// </summary>
 	public class MarketEmulator : BaseLogReceiver, IMarketEmulator
 	{
@@ -133,7 +133,6 @@ namespace StockSharp.Algo.Testing
 			private readonly Dictionary<ExecutionMessage, TimeSpan> _pendingExecutions = new Dictionary<ExecutionMessage, TimeSpan>();
 			private DateTimeOffset _prevTime;
 			private readonly ExecutionLogConverter _execLogConverter;
-			private SecurityMessage _securityDefinition;
 			private int _volumeDecimals;
 			private readonly SortedDictionary<DateTimeOffset, Tuple<List<CandleMessage>, List<ExecutionMessage>>> _candleInfo = new SortedDictionary<DateTimeOffset, Tuple<List<CandleMessage>, List<ExecutionMessage>>>();
 			private TradeGenerator _tradeGenerator;
@@ -153,6 +152,8 @@ namespace StockSharp.Algo.Testing
 				_securityId = securityId;
 				_execLogConverter = new ExecutionLogConverter(securityId, _bids, _asks, _parent.Settings, GetServerTime);
 			}
+
+			private SecurityMessage _securityDefinition;
 
 			public SecurityMessage SecurityDefinition => _securityDefinition;
 
@@ -196,7 +197,7 @@ namespace StockSharp.Algo.Testing
 								foreach (var m in _execLogConverter.ToExecutionLog(execMsg))
 									Process(m, result);
 
-								//result.Add(execMsg);
+								result.Add(execMsg);
 
 								result.Add(CreateQuoteMessage(
 									execMsg.SecurityId,
@@ -212,7 +213,7 @@ namespace StockSharp.Algo.Testing
 								if (_parent.Settings.Latency > TimeSpan.Zero)
 								{
 									this.AddInfoLog(LocalizedStrings.Str1145Params, execMsg.IsCancellation ? LocalizedStrings.Str1146 : LocalizedStrings.Str1147, execMsg.TransactionId == 0 ? execMsg.OriginalTransactionId : execMsg.TransactionId);
-									_pendingExecutions.Add((ExecutionMessage)execMsg.Clone(), _parent.Settings.Latency);
+									_pendingExecutions.Add(execMsg.TypedClone(), _parent.Settings.Latency);
 								}
 								else
 									AcceptExecution(execMsg.LocalTime, execMsg, result);
@@ -337,7 +338,7 @@ namespace StockSharp.Algo.Testing
 								finish = true;
 							}
 
-							var clone = (ExecutionMessage)order.Clone();
+							var clone = order.TypedClone();
 							clone.OriginalTransactionId = statusMsg.TransactionId;
 							result.Add(clone);
 
@@ -400,32 +401,6 @@ namespace StockSharp.Algo.Testing
 						break;
 					}
 
-					case MessageTypes.CandleTimeFrame:
-					case MessageTypes.CandlePnF:
-					case MessageTypes.CandleRange:
-					case MessageTypes.CandleRenko:
-					case MessageTypes.CandleTick:
-					case MessageTypes.CandleVolume:
-					{
-						var candleMsg = (CandleMessage)message;
-
-						// в трейдах используется время открытия свечи, при разных MarketTimeChangedInterval и TimeFrame свечек
-						// возможны ситуации, когда придет TimeMsg 11:03:00, а время закрытия будет 11:03:30
-						// т.о. время уйдет вперед данных, которые построены по свечкам.
-						var info = _candleInfo.SafeAdd(candleMsg.OpenTime, key => Tuple.Create(new List<CandleMessage>(), new List<ExecutionMessage>()));
-
-						info.Item1.Add((CandleMessage)candleMsg.Clone());
-
-						if (_securityDefinition != null/* && _parent._settings.UseCandlesTimeFrame != null*/)
-						{
-							var trades = candleMsg.ToTrades(GetVolumeStep(), _volumeDecimals).ToArray();
-							Process(trades[0], result);
-							info.Item2.AddRange(trades.Skip(1));	
-						}
-						
-						break;
-					}
-
 					case ExtendedMessageTypes.Generator:
 					{
 						var generatorMsg = (GeneratorMessage)message;
@@ -485,7 +460,28 @@ namespace StockSharp.Algo.Testing
 					}
 
 					default:
+					{
+						if (message is CandleMessage candleMsg)
+						{
+							// в трейдах используется время открытия свечи, при разных MarketTimeChangedInterval и TimeFrame свечек
+							// возможны ситуации, когда придет TimeMsg 11:03:00, а время закрытия будет 11:03:30
+							// т.о. время уйдет вперед данных, которые построены по свечкам.
+							var info = _candleInfo.SafeAdd(candleMsg.OpenTime, key => Tuple.Create(new List<CandleMessage>(), new List<ExecutionMessage>()));
+
+							info.Item1.Add(candleMsg.TypedClone());
+
+							if (_securityDefinition != null/* && _parent._settings.UseCandlesTimeFrame != null*/)
+							{
+								var trades = candleMsg.ToTrades(GetVolumeStep(), _volumeDecimals).ToArray();
+								Process(trades[0], result);
+								info.Item2.AddRange(trades.Skip(1));	
+							}
+						
+							break;
+						}
+
 						throw new ArgumentOutOfRangeException();
+					}
 				}
 
 				ProcessTime(message, result);
@@ -559,6 +555,9 @@ namespace StockSharp.Algo.Testing
 						case Level1Fields.MinVolume:
 							_securityDefinition.MinVolume = (decimal)change.Value;
 							break;
+						case Level1Fields.MaxVolume:
+							_securityDefinition.MaxVolume = (decimal)change.Value;
+							break;
 						case Level1Fields.Multiplier:
 							_securityDefinition.Multiplier = (decimal)change.Value;
 							break;
@@ -582,7 +581,7 @@ namespace StockSharp.Algo.Testing
 
 			private static ExecutionMessage CreateReply(ExecutionMessage original, DateTimeOffset time)
 			{
-				var replyMsg = (ExecutionMessage)original.Clone();
+				var replyMsg = original.TypedClone();
 
 				replyMsg.ServerTime = time;
 				replyMsg.LocalTime = time;
@@ -1160,7 +1159,7 @@ namespace StockSharp.Algo.Testing
 					if (!register)
 						return;
 
-					quotes[message.OrderPrice] = pair = RefTuple.Create(new LevelQuotes(), new QuoteChange(message.Side, message.OrderPrice, 0));
+					quotes[message.OrderPrice] = pair = RefTuple.Create(new LevelQuotes(), new QuoteChange(message.OrderPrice, 0));
 				}
 
 				var level = pair.First;
@@ -1170,7 +1169,7 @@ namespace StockSharp.Algo.Testing
 				if (register)
 				{
 					//если пришло увеличение объема на уровне, то всегда добавляем в конец очереди, даже для диффа стаканов
-					//var clone = (ExecutionMessage)message.Clone();
+					//var clone = message.TypedClone();
 					var clone = _messagePool.Allocate();
 					
 					clone.TransactionId = message.TransactionId;
@@ -1205,7 +1204,7 @@ namespace StockSharp.Algo.Testing
 							{
 								leftBalance = -leftBalance;
 
-								//var clone = (ExecutionMessage)message.Clone();
+								//var clone = message.TypedClone();
 								var clone = _messagePool.Allocate();
 
 								clone.TransactionId = message.TransactionId;
@@ -1504,8 +1503,9 @@ namespace StockSharp.Algo.Testing
 				_totalBlockedMoney = _totalBlockedMoney - prevPrice + money.PositionPrice;
 
 				result.Add(
-					new PortfolioChangeMessage
+					new PositionChangeMessage
 					{
+						SecurityId = SecurityId.Money,
 						ServerTime = posMsg.ServerTime,
 						LocalTime = posMsg.LocalTime,
 						PortfolioName = _name,
@@ -1628,8 +1628,9 @@ namespace StockSharp.Algo.Testing
 					_totalBlockedMoney += pair.Value.TotalPrice;
 
 				result.Add(
-					new PortfolioChangeMessage
+					new PositionChangeMessage
 					{
+						SecurityId = SecurityId.Money,
 						ServerTime = time,
 						LocalTime = time,
 						PortfolioName = _name,
@@ -1653,8 +1654,9 @@ namespace StockSharp.Algo.Testing
 					result.Add(ex.ToErrorMessage());
 				}
 
-				result.Add(new PortfolioChangeMessage
+				result.Add(new PositionChangeMessage
 				{
+					SecurityId = SecurityId.Money,
 					ServerTime = time,
 					LocalTime = time,
 					PortfolioName = _name,
@@ -1720,10 +1722,16 @@ namespace StockSharp.Algo.Testing
 		/// </summary>
 		public MarketEmulator()
 		{
+			((IMessageAdapter)this).SupportedInMessages = ((IMessageAdapter)this).PossibleSupportedMessages.Select(i => i.Type).ToArray();
 		}
 
 		/// <inheritdoc />
 		public MarketEmulatorSettings Settings { get; } = new MarketEmulatorSettings();
+
+		/// <summary>
+		/// The number of processed messages.
+		/// </summary>
+		public long ProcessedMessageCount { get; private set; }
 
 		/// <summary>
 		/// The generator of identifiers for orders.
@@ -1736,7 +1744,7 @@ namespace StockSharp.Algo.Testing
 		public IncrementalIdGenerator TradeIdGenerator { get; set; } = new IncrementalIdGenerator();
 
 		/// <inheritdoc />
-		public void SendInMessage(Message message)
+		public bool SendInMessage(Message message)
 		{
 			if (message == null) 
 				throw new ArgumentNullException(nameof(message));
@@ -1832,30 +1840,32 @@ namespace StockSharp.Algo.Testing
 					_bufferPrevFlush = default;
 					_portfoliosPrevRecalc = default;
 
+					ProcessedMessageCount = 0;
+
 					retVal.Add(new ResetMessage());
 					break;
 				}
 
-				case ExtendedMessageTypes.Clearing:
-				{
-					var clearingMsg = (ClearingMessage)message;
-					var emu = _securityEmulators.TryGetValue(clearingMsg.SecurityId);
+				//case ExtendedMessageTypes.Clearing:
+				//{
+				//	var clearingMsg = (ClearingMessage)message;
+				//	var emu = _securityEmulators.TryGetValue(clearingMsg.SecurityId);
 
-					if (emu != null)
-					{
-						_securityEmulators.Remove(clearingMsg.SecurityId);
+				//	if (emu != null)
+				//	{
+				//		_securityEmulators.Remove(clearingMsg.SecurityId);
 
-						var emulators = _securityEmulatorsByBoard.TryGetValue(clearingMsg.SecurityId.BoardCode);
+				//		var emulators = _securityEmulatorsByBoard.TryGetValue(clearingMsg.SecurityId.BoardCode);
 
-						if (emulators != null)
-						{
-							if (emulators.Remove(emu) && emulators.Count == 0)
-								_securityEmulatorsByBoard.Remove(clearingMsg.SecurityId.BoardCode);
-						}
-					}
+				//		if (emulators != null)
+				//		{
+				//			if (emulators.Remove(emu) && emulators.Count == 0)
+				//				_securityEmulatorsByBoard.Remove(clearingMsg.SecurityId.BoardCode);
+				//		}
+				//	}
 
-					break;
-				}
+				//	break;
+				//}
 
 				//case MessageTypes.PortfolioChange:
 				//{
@@ -1874,7 +1884,8 @@ namespace StockSharp.Algo.Testing
 				case MessageTypes.Board:
 				{
 					var boardMsg = (BoardMessage)message;
-					_boardDefinitions[boardMsg.Code] = (BoardMessage)boardMsg.Clone();
+
+					_boardDefinitions[boardMsg.Code] = boardMsg.TypedClone();
 
 					var emulators = _securityEmulatorsByBoard.TryGetValue(boardMsg.Code);
 
@@ -1892,18 +1903,6 @@ namespace StockSharp.Algo.Testing
 					var level1Msg = (Level1ChangeMessage)message;
 					GetEmulator(level1Msg.SecurityId).Process(level1Msg, retVal);
 					UpdateLevel1Info(level1Msg, retVal, false);
-					break;
-				}
-
-				case MessageTypes.CandleTimeFrame:
-				case MessageTypes.CandlePnF:
-				case MessageTypes.CandleRange:
-				case MessageTypes.CandleRenko:
-				case MessageTypes.CandleTick:
-				case MessageTypes.CandleVolume:
-				{
-					var candleMsg = (CandleMessage)message;
-					GetEmulator(candleMsg.SecurityId).Process(candleMsg, retVal);
 					break;
 				}
 
@@ -1928,6 +1927,9 @@ namespace StockSharp.Algo.Testing
 					{
 						pair.Value.Process(message, retVal);
 					}
+
+					if (statusMsg.To == null)
+						retVal.Add(new SubscriptionOnlineMessage { OriginalTransactionId = statusMsg.TransactionId });
 
 					break;
 				}
@@ -1966,7 +1968,8 @@ namespace StockSharp.Algo.Testing
 						}
 					}
 
-					retVal.Add(new PortfolioLookupResultMessage { OriginalTransactionId = pfMsg.TransactionId });
+					if (pfMsg.To == null)
+						retVal.Add(new SubscriptionOnlineMessage { OriginalTransactionId = pfMsg.TransactionId });
 
 					break;
 				}
@@ -1974,8 +1977,10 @@ namespace StockSharp.Algo.Testing
 				case MessageTypes.Security:
 				{
 					var secMsg = (SecurityMessage)message;
+
 					//retVal.Add(secMsg);
 					GetEmulator(secMsg.SecurityId).Process(secMsg, retVal);
+
 					break;
 				}
 
@@ -1994,6 +1999,7 @@ namespace StockSharp.Algo.Testing
 				}
 
 				case MessageTypes.BoardState:
+				{
 					if (Settings.CheckTradingState)
 					{
 						var boardStateMsg = (BoardStateMessage)message;
@@ -2009,15 +2015,55 @@ namespace StockSharp.Algo.Testing
 					retVal.Add(message);
 
 					break;
+				}
+
+				case MessageTypes.MarketData:
+				{
+					var mdMsg = (MarketDataMessage)message;
+
+					if (mdMsg.IsSubscribe)
+						retVal.Add(new SubscriptionResponseMessage { OriginalTransactionId = mdMsg.TransactionId });
+
+					retVal.Add(mdMsg.CreateResult());
+					break;
+				}
+
+				case MessageTypes.SecurityLookup:
+				case MessageTypes.BoardLookup:
+				case MessageTypes.TimeFrameLookup:
+				{
+					var subscrMsg = (ISubscriptionMessage)message;
+					retVal.Add(subscrMsg.CreateResult());
+					break;
+				}
 
 				default:
-					retVal.Add(message);
+				{
+					if (message is CandleMessage candleMsg)
+						GetEmulator(candleMsg.SecurityId).Process(candleMsg, retVal);
+					else
+						retVal.Add(message);
+
 					break;
+				}
 			}
+
+			if (message.Type != MessageTypes.Reset)
+				ProcessedMessageCount++;
 
 			RecalcPnL(message.LocalTime, retVal);
 
-			BufferResult(retVal, message.LocalTime).ForEach(RaiseNewOutMessage);
+			var allowStore = Settings.AllowStoreGenerateMessages;
+
+			foreach (var msg in BufferResult(retVal, message.LocalTime))
+			{
+				if (!allowStore)
+					msg.OfflineMode = MessageOfflineModes.Ignore;
+
+				RaiseNewOutMessage(msg);
+			}
+
+			return true;
 		}
 
 		/// <inheritdoc />
@@ -2146,6 +2192,7 @@ namespace StockSharp.Algo.Testing
 			var priceStep = securityDefinition?.PriceStep;
 			var volumeStep = securityDefinition?.VolumeStep;
 			var minVolume = securityDefinition?.MinVolume;
+			var maxVolume = securityDefinition?.MaxVolume;
 
 			if (state != null && execMsg.OrderType != OrderTypes.Market)
 			{
@@ -2174,6 +2221,9 @@ namespace StockSharp.Algo.Testing
 			if (minVolume != null && execMsg.OrderVolume < minVolume)
 				return LocalizedStrings.OrderVolumeLessMin.Put(execMsg.OrderVolume, execMsg.TransactionId, minVolume);
 
+			if (maxVolume != null && execMsg.OrderVolume > maxVolume)
+				return LocalizedStrings.OrderVolumeMoreMax.Put(execMsg.OrderVolume, execMsg.TransactionId, maxVolume);
+
 			return GetPortfolioInfo(execMsg.PortfolioName).CheckRegistration(execMsg/*, result*/);
 		}
 
@@ -2201,11 +2251,107 @@ namespace StockSharp.Algo.Testing
 
 		bool IMessageChannel.IsOpened => true;
 
+		IdGenerator IMessageAdapter.TransactionIdGenerator { get; } = new IncrementalIdGenerator();
+
+		IEnumerable<MessageTypeInfo> IMessageAdapter.PossibleSupportedMessages { get; } = new[]
+		{
+			MessageTypes.SecurityLookup.ToInfo(),
+			MessageTypes.PortfolioLookup.ToInfo(),
+			MessageTypes.TimeFrameLookup.ToInfo(),
+			MessageTypes.BoardLookup.ToInfo(),
+			MessageTypes.OrderStatus.ToInfo(),
+			MessageTypes.OrderRegister.ToInfo(),
+			MessageTypes.OrderCancel.ToInfo(),
+			MessageTypes.OrderReplace.ToInfo(),
+			MessageTypes.OrderGroupCancel.ToInfo(),
+			MessageTypes.MarketData.ToInfo(),
+			MessageTypes.BoardState.ToInfo(),
+			MessageTypes.Security.ToInfo(),
+			MessageTypes.Portfolio.ToInfo(),
+			MessageTypes.Board.ToInfo(),
+			MessageTypes.Reset.ToInfo(),
+			MessageTypes.QuoteChange.ToInfo(),
+			ExtendedMessageTypes.Last.ToInfo(),
+			ExtendedMessageTypes.Generator.ToInfo(),
+			ExtendedMessageTypes.CommissionRule.ToInfo(),
+			//ExtendedMessageTypes.Clearing.ToInfo(),
+		};
+		IEnumerable<MessageTypes> IMessageAdapter.SupportedInMessages { get; set; }
+		IEnumerable<MessageTypes> IMessageAdapter.SupportedOutMessages => throw new NotImplementedException();
+		IEnumerable<MessageTypes> IMessageAdapter.SupportedResultMessages { get; } = new[]
+		{
+			MessageTypes.SecurityLookup,
+			MessageTypes.PortfolioLookup,
+			MessageTypes.TimeFrameLookup,
+			MessageTypes.BoardLookup,
+		};
+		IEnumerable<DataType> IMessageAdapter.SupportedMarketDataTypes { get; } = new[]
+		{
+			DataType.OrderLog,
+			DataType.Ticks,
+			DataType.CandleTimeFrame,
+			DataType.MarketDepth,
+		};
+
+		IDictionary<string, RefPair<SecurityTypes, string>> IMessageAdapter.SecurityClassInfo { get; } = new Dictionary<string, RefPair<SecurityTypes, string>>();
+
+		IEnumerable<Level1Fields> IMessageAdapter.CandlesBuildFrom => Enumerable.Empty<Level1Fields>();
+
+		bool IMessageAdapter.CheckTimeFrameByRequest => true;
+
+		ReConnectionSettings IMessageAdapter.ReConnectionSettings { get; } = new ReConnectionSettings();
+
+		TimeSpan IMessageAdapter.HeartbeatInterval { get => TimeSpan.Zero; set { } }
+
+		string IMessageAdapter.StorageName => null;
+
+		bool IMessageAdapter.IsNativeIdentifiersPersistable => false;
+		bool IMessageAdapter.IsNativeIdentifiers => false;
+		bool IMessageAdapter.IsFullCandlesOnly => false;
+		bool IMessageAdapter.IsSupportSubscriptions => true;
+		bool IMessageAdapter.IsSupportCandlesUpdates => true;
+
+		MessageAdapterCategories IMessageAdapter.Categories => default;
+		OrderCancelVolumeRequireTypes? IMessageAdapter.OrderCancelVolumeRequired => null;
+
+		IEnumerable<Tuple<string, Type>> IMessageAdapter.SecurityExtendedFields { get; } = Enumerable.Empty<Tuple<string, Type>>();
+		IEnumerable<int> IMessageAdapter.SupportedOrderBookDepths => throw new NotImplementedException();
+		bool IMessageAdapter.IsSupportOrderBookIncrements => false;
+		bool IMessageAdapter.IsSupportExecutionsPnL => true;
+		bool IMessageAdapter.IsSecurityNewsOnly => false;
+		Type IMessageAdapter.OrderConditionType => null;
+		bool IMessageAdapter.HeartbeatBeforConnect => false;
+		Uri IMessageAdapter.Icon => null;
+		bool IMessageAdapter.IsAutoReplyOnTransactonalUnsubscription => true;
+
+		IOrderLogMarketDepthBuilder IMessageAdapter.CreateOrderLogMarketDepthBuilder(SecurityId securityId)
+			=> new OrderLogMarketDepthBuilder(securityId);
+
+		IEnumerable<object> IMessageAdapter.GetCandleArgs(Type candleType, SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to)
+			=> Enumerable.Empty<object>();
+
+		TimeSpan IMessageAdapter.GetHistoryStepSize(DataType dataType, out TimeSpan iterationInterval)
+		{
+			iterationInterval = TimeSpan.Zero;
+			return TimeSpan.Zero;
+		}
+
+		bool IMessageAdapter.IsAllDownloadingSupported(DataType dataType) => false;
+		bool IMessageAdapter.IsSecurityRequired(DataType dataType) => true;
+
 		void IMessageChannel.Open()
 		{
 		}
 
 		void IMessageChannel.Close()
+		{
+		}
+
+		void IMessageChannel.Suspend()
+		{
+		}
+
+		void IMessageChannel.Resume()
 		{
 		}
 

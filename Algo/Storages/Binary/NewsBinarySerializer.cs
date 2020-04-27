@@ -21,6 +21,7 @@ namespace StockSharp.Algo.Storages.Binary
 	using System.Linq;
 
 	using Ecng.Collections;
+	using Ecng.Common;
 	using Ecng.Serialization;
 
 	using StockSharp.Localization;
@@ -55,7 +56,7 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version45)
 				return;
 
-			stream.Write(ServerOffset);
+			stream.WriteEx(ServerOffset);
 
 			if (Version < MarketDataVersions.Version46)
 				return;
@@ -67,7 +68,7 @@ namespace StockSharp.Algo.Storages.Binary
 	class NewsBinarySerializer : BinaryMarketDataSerializer<NewsMessage, NewsMetaInfo>
 	{
 		public NewsBinarySerializer(IExchangeInfoProvider exchangeInfoProvider)
-			: base(default, 200, MarketDataVersions.Version48, exchangeInfoProvider)
+			: base(default, null, 200, MarketDataVersions.Version50, exchangeInfoProvider)
 		{
 		}
 
@@ -109,6 +110,21 @@ namespace StockSharp.Algo.Storages.Binary
 
 				if (news.Priority != null)
 					writer.WriteInt((int)news.Priority.Value);
+
+				if (metaInfo.Version < MarketDataVersions.Version49)
+					continue;
+
+				writer.WriteStringEx(news.Language);
+
+				if (metaInfo.Version < MarketDataVersions.Version50)
+					continue;
+
+				writer.Write(news.ExpiryDate != null);
+
+				if (news.ExpiryDate != null)
+					writer.WriteLong(news.ExpiryDate.Value.To<long>());
+
+				writer.WriteStringEx(news.SecurityId?.BoardCode);
 			}
 		}
 
@@ -137,10 +153,28 @@ namespace StockSharp.Algo.Storages.Binary
 			metaInfo.FirstTime = prevTime;
 			metaInfo.FirstServerOffset = lastOffset;
 
-			if (metaInfo.Version >= MarketDataVersions.Version48)
+			if (metaInfo.Version < MarketDataVersions.Version48)
+				return message;
+
+			if (reader.Read())
+				message.Priority = (NewsPriorities)reader.ReadInt();
+
+			if (metaInfo.Version < MarketDataVersions.Version49)
+				return message;
+
+			message.Language = reader.ReadStringEx();
+
+			if (metaInfo.Version < MarketDataVersions.Version50)
+				return message;
+
+			message.ExpiryDate = reader.Read() ? reader.ReadLong().To<DateTimeOffset>() : (DateTimeOffset?)null;
+
+			var secBoard = reader.ReadStringEx();
+			if (!secBoard.IsEmpty() && message.SecurityId != null)
 			{
-				if (reader.Read())
-					message.Priority = (NewsPriorities)reader.ReadInt();
+				var secId = message.SecurityId.Value;
+				secId.BoardCode = secBoard;
+				message.SecurityId = secId;
 			}
 
 			return message;

@@ -13,7 +13,7 @@
 	/// </summary>
 	public class OrderLogMessageAdapter : MessageAdapterWrapper
 	{
-		private readonly SynchronizedDictionary<long, RefTriple<SecurityId, bool, IOrderLogMarketDepthBuilder>> _subscriptionIds = new SynchronizedDictionary<long, RefTriple<SecurityId, bool, IOrderLogMarketDepthBuilder>>();
+		private readonly SynchronizedDictionary<long, RefTriple<bool, IOrderLogMarketDepthBuilder, SyncObject>> _subscriptionIds = new SynchronizedDictionary<long, RefTriple<bool, IOrderLogMarketDepthBuilder, SyncObject>>();
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="OrderLogMessageAdapter"/>.
@@ -25,7 +25,7 @@
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -38,14 +38,14 @@
 					break;
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		private MarketDataMessage ProcessMarketDataRequest(MarketDataMessage message)
 		{
 			if (message.IsSubscribe)
 			{
-				if (!InnerAdapter.IsMarketDataTypeSupported(MarketDataTypes.OrderLog))
+				if (!InnerAdapter.IsMarketDataTypeSupported(DataType.OrderLog))
 					return message;
 
 				var isBuild = message.BuildMode == MarketDataBuildModes.Build && message.BuildFrom == MarketDataTypes.OrderLog;
@@ -54,18 +54,18 @@
 				{
 					case MarketDataTypes.MarketDepth:
 					{
-						if (isBuild || !InnerAdapter.IsMarketDataTypeSupported(message.DataType))
+						if (isBuild || !InnerAdapter.IsMarketDataTypeSupported(message.ToDataType()))
 						{
 							var secId = GetSecurityId(message.SecurityId);
 
 							IOrderLogMarketDepthBuilder builder = null;
 
 							if (InnerAdapter.IsSecurityRequired(DataType.OrderLog))
-								builder = InnerAdapter.CreateOrderLogMarketDepthBuilder(secId);
+								builder = message.DepthBuilder ?? InnerAdapter.CreateOrderLogMarketDepthBuilder(secId);
 
-							_subscriptionIds.Add(message.TransactionId, RefTuple.Create(secId, true, builder));
+							_subscriptionIds.Add(message.TransactionId, RefTuple.Create(true, builder, new SyncObject()));
 
-							message = (MarketDataMessage)message.Clone();
+							message = message.TypedClone();
 							message.DataType = MarketDataTypes.OrderLog;
 
 							this.AddInfoLog("OL->MD subscribed {0}/{1}.", secId, message.TransactionId);
@@ -76,13 +76,13 @@
 
 					case MarketDataTypes.Trades:
 					{
-						if (isBuild || !InnerAdapter.IsMarketDataTypeSupported(message.DataType))
+						if (isBuild || !InnerAdapter.IsMarketDataTypeSupported(message.ToDataType()))
 						{
 							var secId = GetSecurityId(message.SecurityId);
 
-							_subscriptionIds.Add(message.TransactionId, RefTuple.Create(secId, false, (IOrderLogMarketDepthBuilder)null));
+							_subscriptionIds.Add(message.TransactionId, RefTuple.Create(false, (IOrderLogMarketDepthBuilder)null, new SyncObject()));
 
-							message = (MarketDataMessage)message.Clone();
+							message = message.TypedClone();
 							message.DataType = MarketDataTypes.OrderLog;
 
 							this.AddInfoLog("OL->TICK subscribed {0}/{1}.", secId, message.TransactionId);
@@ -93,12 +93,15 @@
 				}
 			}
 			else
-			{
-				if (_subscriptionIds.TryGetAndRemove(message.OriginalTransactionId, out var tuple))
-					this.AddInfoLog("OL->{0} unsubscribed {1}/{2}.", tuple.Second ? "MD" : "TICK", tuple.First, message.OriginalTransactionId);
-			}
+				RemoveSubscription(message.OriginalTransactionId);
 
 			return message;
+		}
+
+		private void RemoveSubscription(long id)
+		{
+			if (_subscriptionIds.TryGetAndRemove(id, out var tuple))
+				this.AddInfoLog("OL->{0} unsubscribed {1}/{2}.", tuple.First ? "MD" : "TICK", tuple.First, id);
 		}
 
 		/// <inheritdoc />
@@ -108,6 +111,20 @@
 
 			switch (message.Type)
 			{
+				case MessageTypes.SubscriptionResponse:
+				{
+					var responseMsg = (SubscriptionResponseMessage)message;
+
+					if (!responseMsg.IsOk())
+						RemoveSubscription(responseMsg.OriginalTransactionId);
+
+					break;
+				}
+				case MessageTypes.SubscriptionFinished:
+				{
+					RemoveSubscription(((SubscriptionFinishedMessage)message).OriginalTransactionId);
+					break;
+				}
 				case MessageTypes.Execution:
 				{
 					var execMsg = (ExecutionMessage)message;
@@ -143,22 +160,33 @@
 
 				var secId = GetSecurityId(execMsg.SecurityId);
 
-				if (tuple.Second)
+				if (tuple.First)
 				{
-					var builder = tuple.Third;
+					var sync = tuple.Third;
 
-					if (builder == null)
-						tuple.Third = builder = new OrderLogMarketDepthBuilder(execMsg.SecurityId);
+					IOrderLogMarketDepthBuilder builder;
+
+					lock (sync)
+					{
+						builder = tuple.Second;
+
+						if (builder == null)
+							tuple.Second = builder = new OrderLogMarketDepthBuilder(execMsg.SecurityId);
+					}
 
 					try
 					{
-						var updated = builder.Update(execMsg);
+						QuoteChangeMessage depth;
 
-						this.AddDebugLog("OL->MD processing {0}={1}.", execMsg.SecurityId, updated);
+						lock (sync)
+							depth = builder.Update(execMsg)?.TypedClone();
 
-						if (updated)
+						this.AddDebugLog("OL->MD processing {0}={1}.", execMsg.SecurityId, depth != null);
+
+						if (depth != null)
 						{
-							base.OnInnerAdapterNewOutMessage(builder.Depth.Clone());
+							depth.SetSubscriptionIds(subscriptionId: subscriptionId);
+							base.OnInnerAdapterNewOutMessage(depth);
 						}
 					}
 					catch (Exception ex)
@@ -167,7 +195,6 @@
 						// а только выводим сообщение в лог
 						base.OnInnerAdapterNewOutMessage(ex.ToErrorMessage());
 					}
-
 				}
 				else
 				{
@@ -183,7 +210,7 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new OrderLogMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new OrderLogMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

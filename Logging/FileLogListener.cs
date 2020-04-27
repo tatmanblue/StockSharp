@@ -65,8 +65,18 @@ namespace StockSharp.Logging
 				_digitChars[i] = (char)(i + '0');
 		}
 
-		private readonly PairSet<Tuple<string, DateTime>, StreamWriter> _writers = new PairSet<Tuple<string, DateTime>, StreamWriter>();
-		private readonly Dictionary<StreamWriter, string> _fileNames = new Dictionary<StreamWriter, string>();
+		private class StreamWriterEx : StreamWriter
+		{
+			public StreamWriterEx(string path, bool append, Encoding encoding)
+				: base(path, append, encoding)
+			{
+				Path = path;
+			}
+
+			public string Path { get; }
+		}
+
+		private readonly PairSet<Tuple<string, DateTime>, StreamWriterEx> _writers = new PairSet<Tuple<string, DateTime>, StreamWriterEx>();
 
 		/// <summary>
 		/// To create <see cref="FileLogListener"/>. For each <see cref="ILogSource"/> a separate file with a name equal to <see cref="ILogSource.Name"/> will be created.
@@ -271,17 +281,12 @@ namespace StockSharp.Logging
 		/// </summary>
 		/// <param name="fileName">The name of the text file to which messages from the event <see cref="ILogSource.Log"/> will be recorded.</param>
 		/// <returns>A text writer.</returns>
-		protected virtual StreamWriter OnCreateWriter(string fileName)
+		private StreamWriterEx OnCreateWriter(string fileName)
 		{
-			var writer = new StreamWriter(fileName, Append, Encoding);
-			_fileNames.Add(writer, fileName);
-			return writer;
+			return new StreamWriterEx(fileName, Append, Encoding);
 		}
 
-		/// <summary>
-		/// To record messages.
-		/// </summary>
-		/// <param name="messages">Debug messages.</param>
+		/// <inheritdoc />
 		protected override void OnWriteMessages(IEnumerable<LogMessage> messages)
 		{
 			// pyh: эмуляция года данных происходит за 5 секунд. На выходе 365 файлов лога? Бред.
@@ -289,7 +294,7 @@ namespace StockSharp.Logging
 			var date = SeparateByDates != SeparateByDateModes.None ? DateTime.Today : default;
 
 			string prevFileName = null;
-			StreamWriter prevWriter = null;
+			StreamWriterEx prevWriter = null;
 
 			var isDisposing = false;
 
@@ -314,6 +319,14 @@ namespace StockSharp.Logging
 				{
 					if (isDisposing)
 						return null;
+
+					if (_writers.Count > 0 && date != default)
+					{
+						var outOfDate = _writers.Where(p => p.Key.Item2 < date).ToArray();
+
+						foreach (var pair in outOfDate)
+							_writers.GetAndRemove(pair.Key).Dispose();
+					}
 
 					writer = OnCreateWriter(GetFileName(fileName, date));
 					_writers.Add(key, writer);
@@ -341,8 +354,7 @@ namespace StockSharp.Logging
 						if (MaxLength <= 0 || writer.BaseStream.Position < MaxLength)
 							continue;
 
-						var fileName = _fileNames[writer];
-						_fileNames.Remove(writer);
+						var fileName = writer.Path;
 
 						var key = _writers[writer];
 						writer.Dispose();
@@ -477,10 +489,7 @@ namespace StockSharp.Logging
 			return timeChars;
 		}
 
-		/// <summary>
-		/// Load settings.
-		/// </summary>
-		/// <param name="storage">Settings storage.</param>
+		/// <inheritdoc />
 		public override void Load(SettingsStorage storage)
 		{
 			base.Load(storage);
@@ -497,10 +506,7 @@ namespace StockSharp.Logging
 			SeparateByDates = storage.GetValue<SeparateByDateModes>(nameof(SeparateByDates));
 		}
 
-		/// <summary>
-		/// Save settings.
-		/// </summary>
-		/// <param name="storage">Settings storage.</param>
+		/// <inheritdoc />
 		public override void Save(SettingsStorage storage)
 		{
 			base.Save(storage);
@@ -523,8 +529,6 @@ namespace StockSharp.Logging
 		protected override void DisposeManaged()
 		{
 			_writers.Values.ForEach(w => w.Dispose());
-
-			_fileNames.Clear();
 			_writers.Clear();
 
 			base.DisposeManaged();

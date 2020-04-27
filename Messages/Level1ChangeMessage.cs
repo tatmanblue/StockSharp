@@ -186,14 +186,14 @@ namespace StockSharp.Messages
 		Theta,
 
 		/// <summary>
-		/// Initial margin (buy).
+		/// Initial margin to buy.
 		/// </summary>
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.Str304Key)]
 		MarginBuy,
 
 		/// <summary>
-		/// Initial margin (sell).
+		/// Initial margin to sell.
 		/// </summary>
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.Str305Key)]
@@ -737,6 +737,62 @@ namespace StockSharp.Messages
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.YieldVWAPPrevKey)]
 		YieldVWAPPrev,
+
+		/// <summary>
+		/// Index.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.IndexKey)]
+		Index,
+
+		/// <summary>
+		/// Imbalance.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.ImbalanceKey)]
+		Imbalance,
+
+		/// <summary>
+		/// Underlying price.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.UnderlyingKey)]
+		UnderlyingPrice,
+
+		/// <summary>
+		/// Maximum volume allowed in order.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.MaxVolumeKey)]
+		MaxVolume,
+
+		/// <summary>
+		/// Lowest bid during the session.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.LowBidPriceKey, Description = LocalizedStrings.LowBidPriceDescKey)]
+		LowBidPrice,
+
+		/// <summary>
+		/// Highest ask during the session.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.HighAskPriceKey, Description = LocalizedStrings.HighAskPriceDescKey)]
+		HighAskPrice,
+
+		/// <summary>
+		/// Lowest last trade volume.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.LastTradeVolumeLowKey, Description = LocalizedStrings.LastTradeVolumeLowDescKey)]
+		LastTradeVolumeLow,
+
+		/// <summary>
+		/// Highest last trade volume.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.LastTradeVolumeHighKey, Description = LocalizedStrings.LastTradeVolumeHighDescKey)]
+		LastTradeVolumeHigh,
 	}
 
 	/// <summary>
@@ -746,7 +802,7 @@ namespace StockSharp.Messages
 	[Serializable]
 	[DisplayNameLoc(LocalizedStrings.Level1Key)]
 	[DescriptionLoc(LocalizedStrings.Level1MarketDataKey)]
-	public class Level1ChangeMessage : BaseChangeMessage<Level1Fields>, ISecurityIdMessage
+	public class Level1ChangeMessage : BaseChangeMessage<Level1ChangeMessage, Level1Fields>, ISecurityIdMessage
 	{
 		/// <inheritdoc />
 		[DataMember]
@@ -763,26 +819,18 @@ namespace StockSharp.Messages
 		{
 		}
 
-		/// <summary>
-		/// Create a copy of <see cref="Level1ChangeMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
+		/// <inheritdoc />
+		public override void CopyTo(Level1ChangeMessage destination)
 		{
-			var clone = new Level1ChangeMessage
-			{
-				SecurityId = SecurityId,
-			};
+			base.CopyTo(destination);
 
-			CopyTo(clone);
-
-			return clone;
+			destination.SecurityId = SecurityId;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Sec={SecurityId},Changes={Changes.Select(c => c.ToString()).Join(",")}";
+			return base.ToString() + $",Sec={SecurityId},Changes={Changes.Select(c => c.ToString()).JoinComma()}";
 		}
 	}
 }

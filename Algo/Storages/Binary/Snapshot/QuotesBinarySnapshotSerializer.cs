@@ -18,8 +18,10 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 		[StructLayout(LayoutKind.Sequential, Pack = 1)]
 		private struct QuotesSnapshotRow
 		{
-			public decimal Price;
-			public decimal Volume;
+			public BlittableDecimal Price;
+			public BlittableDecimal Volume;
+			public int OrdersCount;
+			public byte QuoteCondition;
 		}
 
 		[StructLayout(LayoutKind.Sequential, Pack = 1, CharSet = CharSet.Unicode)]
@@ -52,7 +54,7 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			}
 		}
 
-		Version ISnapshotSerializer<SecurityId, QuoteChangeMessage>.Version { get; } = SnapshotVersions.V20;
+		Version ISnapshotSerializer<SecurityId, QuoteChangeMessage>.Version { get; } = SnapshotVersions.V21;
 
 		string ISnapshotSerializer<SecurityId, QuoteChangeMessage>.Name => "OrderBook";
 
@@ -90,8 +92,8 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			var buffer = new byte[snapshotSize + (bids.Length + asks.Length) * rowSize];
 
 			var ptr = snapshot.StructToPtr();
-			Marshal.Copy(ptr, buffer, 0, snapshotSize);
-			Marshal.FreeHGlobal(ptr);
+			ptr.CopyTo(buffer, 0, snapshotSize);
+			ptr.FreeHGlobal();
 
 			var offset = snapshotSize;
 
@@ -99,13 +101,16 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			{
 				var row = new QuotesSnapshotRow
 				{
-					Price = quote.Price,
-					Volume = quote.Volume,
+					Price = (BlittableDecimal)quote.Price,
+					Volume = (BlittableDecimal)quote.Volume,
+					OrdersCount = quote.OrdersCount ?? 0,
+					QuoteCondition = (byte)quote.Condition,
 				};
 
-				var rowPtr = row.StructToPtr();
-				Marshal.Copy(rowPtr, buffer, offset, rowSize);
-				Marshal.FreeHGlobal(rowPtr);
+				var rowPtr = row.StructToPtr(rowSize);
+
+				rowPtr.CopyTo(buffer, offset, rowSize);
+				rowPtr.FreeHGlobal();
 
 				offset += rowSize;
 			}
@@ -118,33 +123,26 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			if (version == null)
 				throw new ArgumentNullException(nameof(version));
 
-			// Pin the managed memory while, copy it out the data, then unpin it
-			using (var handle = new GCHandle<byte[]>(buffer, GCHandleType.Pinned))
+			using (var handle = new GCHandle<byte[]>(buffer))
 			{
-				var ptr = handle.Value.AddrOfPinnedObject();
+				var ptr = handle.CreatePointer();
 
-				var snapshot = ptr.ToStruct<QuotesSnapshot>();
+				var snapshot = ptr.ToStruct<QuotesSnapshot>(true);
 
 				var bids = new QuoteChange[snapshot.BidCount];
 				var asks = new QuoteChange[snapshot.AskCount];
 
-				ptr += typeof(QuotesSnapshot).SizeOf();
-
-				var rowSize = Marshal.SizeOf(typeof(QuotesSnapshotRow));
+				QuoteChange ReadQuote()
+				{
+					var row = ptr.ToStruct<QuotesSnapshotRow>(true);
+					return new QuoteChange(row.Price, row.Volume, row.OrdersCount.DefaultAsNull(), (QuoteConditions)row.QuoteCondition);
+				}
 
 				for (var i = 0; i < snapshot.BidCount; i++)
-				{
-					var row = ptr.ToStruct<QuotesSnapshotRow>();
-					bids[i] = new QuoteChange(Sides.Buy, row.Price, row.Volume);
-					ptr += rowSize;
-				}
+					bids[i] = ReadQuote();
 
 				for (var i = 0; i < snapshot.AskCount; i++)
-				{
-					var row = ptr.ToStruct<QuotesSnapshotRow>();
-					asks[i] = new QuoteChange(Sides.Sell, row.Price, row.Volume);
-					ptr += rowSize;
-				}
+					asks[i] = ReadQuote();
 
 				return new QuoteChangeMessage
 				{
@@ -165,7 +163,7 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 
 		QuoteChangeMessage ISnapshotSerializer<SecurityId, QuoteChangeMessage>.CreateCopy(QuoteChangeMessage message)
 		{
-			return (QuoteChangeMessage)message.Clone();
+			return message.TypedClone();
 		}
 
 		void ISnapshotSerializer<SecurityId, QuoteChangeMessage>.Update(QuoteChangeMessage message, QuoteChangeMessage changes)

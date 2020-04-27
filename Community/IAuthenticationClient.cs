@@ -3,6 +3,10 @@ namespace StockSharp.Community
 	using System;
 	using System.Security;
 
+	using Ecng.ComponentModel;
+
+	using StockSharp.Community.Messages;
+
 	/// <summary>
 	/// The interface describing a client for access to the StockSharp authentication service.
 	/// </summary>
@@ -16,7 +20,7 @@ namespace StockSharp.Community
 		/// <summary>
 		/// Product.
 		/// </summary>
-		Products? Product { get; set; }
+		ProductInfoMessage Product { get; set; }
 
 		/// <summary>
 		/// Version.
@@ -55,7 +59,15 @@ namespace StockSharp.Community
 		/// <param name="version">Version.</param>
 		/// <param name="login">Login.</param>
 		/// <param name="password">Password.</param>
-		void Login(Products? product, Version version, string login, SecureString password);
+		void Login(ProductInfoMessage product, Version version, string login, SecureString password);
+
+		/// <summary>
+		/// To log in.
+		/// </summary>
+		/// <param name="product">Product.</param>
+		/// <param name="version">Version.</param>
+		/// <param name="token">Token.</param>
+		void Login(ProductInfoMessage product, Version version, SecureString token);
 
 		/// <summary>
 		/// Logout.

@@ -37,22 +37,13 @@ namespace StockSharp.Algo.Storages.Csv
 		{
 		}
 
-		/// <summary>
-		/// To create empty meta-information.
-		/// </summary>
-		/// <param name="date">Date.</param>
-		/// <returns>Meta-information on data for one day.</returns>
+		/// <inheritdoc />
 		public override IMarketDataMetaInfo CreateMetaInfo(DateTime date)
 		{
 			return new CsvMetaInfo(date, Encoding, r => r.ReadNullableLong());
 		}
 
-		/// <summary>
-		/// Write data to the specified writer.
-		/// </summary>
-		/// <param name="writer">CSV writer.</param>
-		/// <param name="data">Data.</param>
-		/// <param name="metaInfo">Meta-information on data for one day.</param>
+		/// <inheritdoc />
 		protected override void Write(CsvFileWriter writer, ExecutionMessage data, IMarketDataMetaInfo metaInfo)
 		{
 			writer.WriteRow(new[]
@@ -69,22 +60,18 @@ namespace StockSharp.Algo.Storages.Csv
 				data.TradeId.ToString(),
 				data.TradePrice.ToString(),
 				data.PortfolioName,
-				data.IsSystem.ToString()
+				data.IsSystem.ToString(),
+				data.Balance.ToString(),
 			});
 
 			metaInfo.LastTime = data.ServerTime.UtcDateTime;
 			metaInfo.LastId = data.TransactionId;
 		}
 
-		/// <summary>
-		/// Read data from the specified reader.
-		/// </summary>
-		/// <param name="reader">CSV reader.</param>
-		/// <param name="metaInfo">Meta-information on data for one day.</param>
-		/// <returns>Data.</returns>
+		/// <inheritdoc />
 		protected override ExecutionMessage Read(FastCsvReader reader, IMarketDataMetaInfo metaInfo)
 		{
-			return new ExecutionMessage
+			var ol = new ExecutionMessage
 			{
 				SecurityId = SecurityId,
 				ExecutionType = ExecutionTypes.OrderLog,
@@ -101,6 +88,11 @@ namespace StockSharp.Algo.Storages.Csv
 				PortfolioName = reader.ReadString(),
 				IsSystem = reader.ReadNullableBool(),
 			};
+
+			if ((reader.ColumnCurr + 1) < reader.ColumnCount)
+				ol.Balance = reader.ReadNullableDecimal();
+
+			return ol;
 		}
 	}
 }

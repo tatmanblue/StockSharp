@@ -6,9 +6,9 @@ namespace StockSharp.Algo.Server
 
 	using Ecng.Collections;
 	using Ecng.Common;
+	using Ecng.ComponentModel;
 	using Ecng.Serialization;
 
-	using StockSharp.Community;
 	using StockSharp.Messages;
 
 	using Pair = System.Tuple<string, string, object, System.DateTime?>;
@@ -37,7 +37,7 @@ namespace StockSharp.Algo.Server
 			get
 			{
 				lock (IpRestrictions.SyncRoot)
-					return IpRestrictions.Select(e => e.To<string>()).Join(",");
+					return IpRestrictions.Select(e => e.To<string>()).JoinComma();
 			}
 			set
 			{
@@ -49,7 +49,7 @@ namespace StockSharp.Algo.Server
 
 					if (ipRestrictions != null)
 					{
-						IpRestrictions.AddRange(ipRestrictions.Split(",").Select(s => s.To<IPAddress>()));
+						IpRestrictions.AddRange(ipRestrictions.SplitByComma().Select(s => s.To<IPAddress>()));
 					}
 				}
 

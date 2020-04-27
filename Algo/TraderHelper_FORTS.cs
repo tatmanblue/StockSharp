@@ -13,6 +13,7 @@ namespace StockSharp.Algo
 
 	using StockSharp.Messages;
 	using StockSharp.Localization;
+    using StockSharp.Algo.Storages;
 
 	partial class TraderHelper
 	{
@@ -70,7 +71,7 @@ namespace StockSharp.Algo
 
 							message.Add(new Level1ChangeMessage
 							{
-								ServerTime = time.EndOfDay().ApplyTimeZone(TimeHelper.Moscow),
+								ServerTime = time.EndOfDay().ApplyMoscow(),
 								SecurityId = new SecurityId
 								{
 									SecurityCode = securityName,
@@ -120,7 +121,7 @@ namespace StockSharp.Algo
 			using (var client = new WebClient())
 			{
 				var url = "https://moex.com/export/derivatives/currency-rate.aspx?language=en&currency={0}&moment_start={1:yyyy-MM-dd}&moment_end={2:yyyy-MM-dd}"
-					.Put(securityId.SecurityCode.Replace("/", TraderHelper.SecurityPairSeparator), fromDate, toDate);
+					.Put(securityId.SecurityCode.Replace("/", StorageHelper.SecurityPairSeparator), fromDate, toDate);
 
 				var stream = client.OpenRead(url);
 
@@ -130,7 +131,7 @@ namespace StockSharp.Algo
 				return CultureInfo.InvariantCulture.DoInCulture(() =>
 					(from rate in XDocument.Load(stream).Descendants("rate")
 					select new KeyValuePair<DateTimeOffset, decimal>(
-						rate.GetAttributeValue<string>("moment").ToDateTime("yyyy-MM-dd HH:mm:ss").ApplyTimeZone(TimeHelper.Moscow),
+						rate.GetAttributeValue<string>("moment").ToDateTime("yyyy-MM-dd HH:mm:ss").ApplyMoscow(),
 						rate.GetAttributeValue<decimal>("value"))).OrderBy(p => p.Key).ToDictionary());
 			}
 		}

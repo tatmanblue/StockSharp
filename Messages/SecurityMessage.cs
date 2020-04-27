@@ -30,7 +30,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[System.Runtime.Serialization.DataContract]
 	[Serializable]
-	public class SecurityMessage : BaseSubscriptionIdMessage, ISecurityIdMessage
+	public class SecurityMessage : BaseSubscriptionIdMessage<SecurityMessage>, ISecurityIdMessage
 	{
 		/// <inheritdoc />
 		[DataMember]
@@ -77,6 +77,16 @@ namespace StockSharp.Messages
 		[MainCategory]
 		[Nullable]
 		public decimal? MinVolume { get; set; }
+
+		/// <summary>
+		/// Maximum volume allowed in order.
+		/// </summary>
+		[DataMember]
+		[DisplayNameLoc(LocalizedStrings.MaxVolumeKey)]
+		[DescriptionLoc(LocalizedStrings.MaxVolumeDescKey)]
+		[MainCategory]
+		[Nullable]
+		public decimal? MaxVolume { get; set; }
 
 		/// <summary>
 		/// Lot multiplier.
@@ -284,29 +294,26 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Create a copy of <see cref="SecurityMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
-		{
-			var clone = new SecurityMessage();
-			CopyTo(clone);
-			return clone;
-		}
-
-		/// <summary>
 		/// Copy the message into the <paramref name="destination" />.
 		/// </summary>
 		/// <param name="destination">The object, to which copied information.</param>
 		/// <param name="copyOriginalTransactionId">Copy <see cref="IOriginalTransactionIdMessage.OriginalTransactionId"/>.</param>
-		public void CopyTo(SecurityMessage destination, bool copyOriginalTransactionId = true)
+		public void CopyTo(SecurityMessage destination, bool copyOriginalTransactionId)
 		{
 			var originTransId = destination.OriginalTransactionId;
 
+			CopyTo(destination);
+
+			if (!copyOriginalTransactionId)
+				destination.OriginalTransactionId = originTransId;
+		}
+
+		/// <inheritdoc />
+		public override void CopyTo(SecurityMessage destination)
+		{
 			base.CopyTo(destination);
 
-			destination.OriginalTransactionId = copyOriginalTransactionId ? OriginalTransactionId : originTransId;
-
+			destination.OriginalTransactionId = OriginalTransactionId;
 			destination.SecurityId = SecurityId;
 			destination.Name = Name;
 			destination.ShortName = ShortName;
@@ -322,6 +329,7 @@ namespace StockSharp.Messages
 			destination.UnderlyingSecurityCode = UnderlyingSecurityCode;
 			destination.VolumeStep = VolumeStep;
 			destination.MinVolume = MinVolume;
+			destination.MaxVolume = MaxVolume;
 			destination.Multiplier = Multiplier;
 			destination.Class = Class;
 			destination.BinaryOptionType = BinaryOptionType;
@@ -360,6 +368,9 @@ namespace StockSharp.Messages
 
 			if (MinVolume != null)
 				str += $",MinVol={MinVolume}";
+
+			if (MaxVolume != null)
+				str += $",MaxVol={MaxVolume}";
 
 			if (Decimals != null)
 				str += $",Dec={Decimals}";

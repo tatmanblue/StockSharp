@@ -1,6 +1,7 @@
 StockSharp API Change log
 ========================
-## v4.4.17:
+## v5.0.0:
+* (feature) .NET 4.8 and .NET Core 3.1
 * (feature) INativeIdStorage. Clear method added.
 * (bug) FinamHistorySource. Fix https://stocksharp.ru/forum/10395/skachivanie-tikovyh-i-svechnyh-istoricheskih-dannyh-gidroi-s-finama/
 * (bug) DiMinus, DiPlus, IchimokuChinkouLine, IchimokuLine, RelativeVigorIndexAverage, RelativeVigorIndexSignal excluded from indicators list.
@@ -179,7 +180,6 @@ StockSharp API Change log
 * (feature) BuySellGrid. AddPanel, RemovePanel methods added.
 * (feature) GuiConnector removed.
 * (feature) SampleSync removed as obsolete.
-* (feature) Portfolio. InternalId added.
 * (feature) Connector. CandleSeriesError event added.
 * (feature) IMarketDataProvider. Added adapter parameter to subscription methods.
 * (feature) Micex TEAP. Stock32, Stock33, Stock34, Currency32, Currency33, Currency34 interfaces added.
@@ -281,7 +281,7 @@ StockSharp API Change log
 * (feature) OKEX. PostOnly order supported.
 * (feature) OKEX. MatchPrice supported.
 * (feature) OKEX. Futures, Swap close position operation supported.
-* (feature) FIX connector. BrasilBolsa fix dialect added.
+* (feature) FIX connector. Bovespa FIX and FAST dialects added.
 * (feature) PortfolioGrid. Leverage column added.
 * (feature) Connector. Support single order status requests.
 * (feature) Connector. IsAutoPortfoliosSubscribe added.
@@ -299,6 +299,54 @@ StockSharp API Change log
 * (feature) OrderStatus subscription uses SubscriptionResponseMessage as response.
 * (feature) SubscriptionResponseMessage. IsNotSupported property removed.
 * (feature) Use SubscriptionResponseMessage.Error as response for error lookup messages.
+* (feature) Uses SubscriptionOnlineMessage, SubscriptionFinishedMessage instead of SecurityLookupResultMessage, PortfolioLookupResultMessage, OrderStatusMessage.
+* (feature) News. Language property added.
+* (feature) Quote. OrdersCount added.
+* (feature) SecurityTypes. Gdr, MultiLeg, Loan, Spread, Receipt, Indicator, Strategy, Volatility types added.
+* (feature) QuoteChangeMessage. Updates by position supported.
+* (feature) QuoteChange. Side removed.
+* (feature) Removed XXXResultMessage. Uses SubscriptionFinishedMessage.
+* (feature) PortfolioChangeMessage removed.
+* (feature) Storages. Check version of an app and stored format.
+* (bug) Fix snapshot storage fractional values.
+* (feature) QuoteCondition added.
+* (feature) Level1Fields. Index, Imbalance, UnderlyingPrice.
+* (feature) Deribit. Test environment supported.
+* (feature) MarketDepthControl. OrdersCount, Condition columns added.
+* (feature) QuikLua32 (C# version).
+* (bug) QuikLua. Turn off auto logic with client code initialization. Possible fix https://stocksharp.ru/forum/11227/ne-udaetsya-avtomaticheski-podat-zayavku-na-spb/
+* (feature) FIX connector. OneZero dialect added.
+* (feature) FIX connector. Dialects inherited from IMessageAdapter.
+* (feature) Strategy. Connector now is class type.
+* (feature) Binance. Futures and Margin supported.
+* (feature) Huobi. Removed obsolete HADAX.
+* (feature) MarketDataMessage. RefreshSpeed option added.
+* (bug) Coinbase and GDAX. Fix historical step.
+* (bug) Coincheck. Fix historical ticks parsing.
+* (feature) Quoinex. Supports Liquid.
+* (bug) Upbit. Fix non minutes candles request.
+* (feature) Binance. New position events processing and fast order book subscription.
+* (bug) Bittrex. Fix subscription replies send.
+* (bug) Bitexbook. Fix market data.
+* (feature) Latoken. V2 protocol supported.
+* (feature) FIX connector. Dialects made as public.
+* (feature) SecurityGrid. ProcessLevel1 method added.
+* (bug) OKEX. Fix tick volume for margin section - https://stocksharp.ru/forum/11367/dlya-fyuchersov-okex-ne-prihodit-znachenie-obema-tika/
+* (feature) LBank. V2 protocol supported.
+* (feature) PrizmBit connector.
+* (bug) OKEX. Fix https://stocksharp.ru/forum/11384/oshibki-registratsii-orderov-dlya-okex/
+* (feature) IFileService. Compression added.
+* (feature) IUpdateService created.
+* (feature) Security. MaxVolume property added.
+* (feature) Level1. LowBidPrice, HighAskPrice, LastTradeVolumeLow, LastTradeVolumeHigh new fields.
+* (feature) News. ExpiryDate property added.
+* (feature) Tick storage. Supports string ids.
+* (feature) Heikin Ashi candles.
+* (feature) DigitexFutures connector.
+* (feature) Position. BuyOrdersCount, SellOrdersCount, BuyOrdersMargin, SellOrdersMargin, OrdersMargin, OrdersCount, TradesCount.
+* (bug) FileLogListener. Clean out of date writers.
+* (feature) INativeIdStorage. Supports variable tuple based ids. Support remove operations.
+* (feature) IPortfolioProvider. GetPortfolio -> LookupByPortfolioName.
 
 ## v4.4.16:
 * (feature) Alerts. Message made optional for sound based events.

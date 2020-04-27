@@ -20,7 +20,9 @@ namespace StockSharp.Community
 	using System.Threading;
 
 	using Ecng.Common;
+	using Ecng.ComponentModel;
 
+	using StockSharp.Community.Messages;
 	using StockSharp.Logging;
 
 	/// <summary>
@@ -53,7 +55,7 @@ namespace StockSharp.Community
 		public ServerCredentials Credentials { get; }
 
 		/// <inheritdoc />
-		public Products? Product { get; set; }
+		public ProductInfoMessage Product { get; set; }
 
 		/// <inheritdoc />
 		public Version Version { get; set; }
@@ -86,35 +88,32 @@ namespace StockSharp.Community
 		}
 
 		/// <inheritdoc />
-		public void Login(Products? product, Version version, string login, SecureString password)
+		public void Login(ProductInfoMessage product, Version version, SecureString token)
 		{
-			if (login.IsEmpty())
-				throw new ArgumentNullException(nameof(login));
+			HandleResponse(product, Invoke(f => f.Login5(product?.Id ?? 0, version.To<string>(), token.UnSecure())));
+		}
+
+		/// <inheritdoc />
+		public void Login(ProductInfoMessage product, Version version, string login, SecureString password)
+		{
+			//if (login.IsEmpty())
+			//	throw new ArgumentNullException(nameof(login));
 
 			if (password.IsEmpty())
 				throw new ArgumentNullException(nameof(password));
 
-			Guid sessionId;
+			HandleResponse(product, Invoke(f => f.Login4(product?.Id ?? 0, version.To<string>(), login, password.UnSecure())));
+		}
 
-			if (product == null)
-			{
-				sessionId = Invoke(f => f.Login(login, password.UnSecure()));
-				sessionId.ToErrorCode().ThrowIfError();
+		private void HandleResponse(ProductInfoMessage product, Tuple<Guid, long> tuple)
+		{
+			if (tuple is null)
+				throw new ArgumentNullException(nameof(tuple));
 
-				NullableSessionId = sessionId;
-				UserId = Invoke(f => f.GetId(sessionId));
-			}
-			else
-			{
-				var tuple = Invoke(f => version == null
-					? f.Login2(product.Value, login, password.UnSecure())
-					: f.Login3(product.Value, version.To<string>(), login, password.UnSecure()));
+			tuple.Item1.ToErrorCode().ThrowIfError();
 
-				tuple.Item1.ToErrorCode().ThrowIfError();
-
-				NullableSessionId = tuple.Item1;
-				UserId = tuple.Item2;
-			}
+			NullableSessionId = tuple.Item1;
+			UserId = tuple.Item2;
 
 			if (product != null)
 			{

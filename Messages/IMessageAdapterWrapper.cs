@@ -48,6 +48,19 @@ namespace StockSharp.Messages
 		protected MessageAdapterWrapper(IMessageAdapter innerAdapter)
 		{
 			InnerAdapter = innerAdapter ?? throw new ArgumentNullException(nameof(innerAdapter));
+
+			_innerAdapterName = GetUnderlyingAdapter(InnerAdapter).Name;
+		}
+
+		private IMessageAdapter GetUnderlyingAdapter(IMessageAdapter adapter)
+		{
+			if (adapter == null)
+				throw new ArgumentNullException(nameof(adapter));
+
+			if (adapter is IMessageAdapterWrapper wrapper)
+				return GetUnderlyingAdapter(wrapper.InnerAdapter);
+
+			return adapter;
 		}
 
 		/// <inheritdoc />
@@ -118,6 +131,16 @@ namespace StockSharp.Messages
 			InnerAdapter.Close();
 		}
 
+		void IMessageChannel.Suspend()
+		{
+			InnerAdapter.Suspend();
+		}
+
+		void IMessageChannel.Resume()
+		{
+			InnerAdapter.Resume();
+		}
+
 		event Action IMessageChannel.StateChanged
 		{
 			add => InnerAdapter.StateChanged += value;
@@ -130,7 +153,7 @@ namespace StockSharp.Messages
 		protected virtual bool SendInBackFurther => true;
 
 		/// <inheritdoc />
-		public virtual void SendInMessage(Message message)
+		public virtual bool SendInMessage(Message message)
 		{
 			if (message.IsBack)
 			{
@@ -142,15 +165,14 @@ namespace StockSharp.Messages
 				{
 					if (SendInBackFurther)
 					{
-						InnerAdapter.SendInMessage(message);
-						return;
+						return InnerAdapter.SendInMessage(message);
 					}
 				}
 			}
 
 			try
 			{
-				OnSendInMessage(message);
+				return OnSendInMessage(message);
 			}
 			catch (Exception ex)
 			{
@@ -166,9 +188,10 @@ namespace StockSharp.Messages
 		/// Send message.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		protected virtual void OnSendInMessage(Message message)
+		/// <returns><see langword="true"/> if the specified message was processed successfully, otherwise, <see langword="false"/>.</returns>
+		protected virtual bool OnSendInMessage(Message message)
 		{
-			InnerAdapter.SendInMessage(message);
+			return InnerAdapter.SendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -194,10 +217,12 @@ namespace StockSharp.Messages
 
 		Guid ILogSource.Id => InnerAdapter.Id;
 
+		private readonly string _innerAdapterName;
+
 		string ILogSource.Name
 		{
-			get => InnerAdapter.Name;
-			set => InnerAdapter.Name = value;
+			get => _innerAdapterName + $" ({GetType().Name.Remove(nameof(MessageAdapter))})";
+			set { }
 		}
 
 		/// <inheritdoc />
@@ -239,11 +264,7 @@ namespace StockSharp.Messages
 		public IdGenerator TransactionIdGenerator => InnerAdapter.TransactionIdGenerator;
 
 		/// <inheritdoc />
-		public virtual IEnumerable<MessageTypeInfo> PossibleSupportedMessages
-		{
-			get => InnerAdapter.PossibleSupportedMessages;
-			set => InnerAdapter.PossibleSupportedMessages = value;
-		}
+		public virtual IEnumerable<MessageTypeInfo> PossibleSupportedMessages => InnerAdapter.PossibleSupportedMessages;
 
 		/// <inheritdoc />
 		public virtual IEnumerable<MessageTypes> SupportedInMessages
@@ -253,18 +274,13 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		public virtual IEnumerable<MessageTypes> SupportedOutMessages
-		{
-			get => InnerAdapter.SupportedOutMessages;
-			set => InnerAdapter.SupportedOutMessages = value;
-		}
+		public virtual IEnumerable<MessageTypes> SupportedOutMessages => InnerAdapter.SupportedOutMessages;
 
 		/// <inheritdoc />
-		public virtual IEnumerable<MarketDataTypes> SupportedMarketDataTypes
-		{
-			get => InnerAdapter.SupportedMarketDataTypes;
-			set => InnerAdapter.SupportedMarketDataTypes = value;
-		}
+		public virtual IEnumerable<MessageTypes> SupportedResultMessages => InnerAdapter.SupportedResultMessages;
+
+		/// <inheritdoc />
+		public virtual IEnumerable<DataType> SupportedMarketDataTypes => InnerAdapter.SupportedMarketDataTypes;
 
 		IDictionary<string, RefPair<SecurityTypes, string>> IMessageAdapter.SecurityClassInfo => InnerAdapter.SecurityClassInfo;
 
@@ -319,6 +335,10 @@ namespace StockSharp.Messages
 		Type IMessageAdapter.OrderConditionType => InnerAdapter.OrderConditionType;
 
 		bool IMessageAdapter.HeartbeatBeforConnect => InnerAdapter.HeartbeatBeforConnect;
+
+		Uri IMessageAdapter.Icon => InnerAdapter.Icon;
+
+		bool IMessageAdapter.IsAutoReplyOnTransactonalUnsubscription => InnerAdapter.IsAutoReplyOnTransactonalUnsubscription;
 
 		IOrderLogMarketDepthBuilder IMessageAdapter.CreateOrderLogMarketDepthBuilder(SecurityId securityId)
 			=> InnerAdapter.CreateOrderLogMarketDepthBuilder(securityId);

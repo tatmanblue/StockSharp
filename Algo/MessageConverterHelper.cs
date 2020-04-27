@@ -28,7 +28,6 @@ namespace StockSharp.Algo
 	using StockSharp.Algo.Server;
 	using StockSharp.Algo.Storages;
 	using StockSharp.BusinessEntities;
-	using StockSharp.Community;
 	using StockSharp.Messages;
 	using StockSharp.Localization;
 
@@ -37,6 +36,17 @@ namespace StockSharp.Algo
 	/// </summary>
 	public static class MessageConverterHelper
 	{
+		static MessageConverterHelper()
+		{
+			RegisterCandle(() => new TimeFrameCandle(), () => new TimeFrameCandleMessage());
+			RegisterCandle(() => new TickCandle(), () => new TickCandleMessage());
+			RegisterCandle(() => new VolumeCandle(), () => new VolumeCandleMessage());
+			RegisterCandle(() => new RangeCandle(), () => new RangeCandleMessage());
+			RegisterCandle(() => new PnFCandle(), () => new PnFCandleMessage());
+			RegisterCandle(() => new RenkoCandle(), () => new RenkoCandleMessage());
+			RegisterCandle(() => new HeikinAshiCandle(), () => new HeikinAshiCandleMessage());
+		}
+
 		/// <summary>
 		/// Cast <see cref="MarketDepth"/> to the <see cref="QuoteChangeMessage"/>.
 		/// </summary>
@@ -61,15 +71,7 @@ namespace StockSharp.Algo
 			};
 		}
 
-		private static readonly PairSet<Type, Type> _candleTypes = new PairSet<Type, Type>
-		{
-			{ typeof(TimeFrameCandle), typeof(TimeFrameCandleMessage) },
-			{ typeof(TickCandle), typeof(TickCandleMessage) },
-			{ typeof(VolumeCandle), typeof(VolumeCandleMessage) },
-			{ typeof(RangeCandle), typeof(RangeCandleMessage) },
-			{ typeof(PnFCandle), typeof(PnFCandleMessage) },
-			{ typeof(RenkoCandle), typeof(RenkoCandleMessage) },
-		};
+		private static readonly CachedSynchronizedPairSet<Type, Type> _candleTypes = new CachedSynchronizedPairSet<Type, Type>();
 
 		/// <summary>
 		/// Cast candle type <see cref="Candle"/> to the message <see cref="CandleMessage"/>.
@@ -117,22 +119,10 @@ namespace StockSharp.Algo
 			if (candle == null)
 				throw new ArgumentNullException(nameof(candle));
 
-			CandleMessage message;
-
-			if (candle is TimeFrameCandle)
-				message = new TimeFrameCandleMessage();
-			else if (candle is TickCandle)
-				message = new TickCandleMessage();
-			else if (candle is VolumeCandle)
-				message = new VolumeCandleMessage();
-			else if (candle is RangeCandle)
-				message = new RangeCandleMessage();
-			else if (candle is PnFCandle)
-				message = new PnFCandleMessage();
-			else if (candle is RenkoCandle)
-				message = new RenkoCandleMessage();
-			else
+			if (!_candleTypes.TryGetValue(candle.GetType(), out var messageType))
 				throw new ArgumentException(LocalizedStrings.UnknownCandleType.Put(candle.GetType()), nameof(candle));
+
+			var message = CreateCandleMessage(messageType);
 
 			message.LocalTime = candle.OpenTime;
 			message.SecurityId = candle.Security.ToSecurityId();
@@ -287,17 +277,19 @@ namespace StockSharp.Algo
 
 			return new ExecutionMessage
 			{
+				ExecutionType = ExecutionTypes.Tick,
 				LocalTime = trade.LocalTime,
-				SecurityId = trade.Security.ToSecurityId(),
-				TradeId = trade.Id,
 				ServerTime = trade.Time,
+				SecurityId = trade.Security.ToSecurityId(),
+				TradeId = trade.Id.DefaultAsNull(),
+				TradeStringId = trade.StringId,
 				TradePrice = trade.Price,
 				TradeVolume = trade.Volume,
 				IsSystem = trade.IsSystem,
 				TradeStatus = trade.Status,
 				OpenInterest = trade.OpenInterest,
 				OriginSide = trade.OrderDirection,
-				ExecutionType = ExecutionTypes.Tick,
+				IsUpTick = trade.IsUpTick,
 				Currency = trade.Currency,
 			};
 		}
@@ -532,6 +524,7 @@ namespace StockSharp.Algo
 			message.Decimals = security.Decimals;
 			message.VolumeStep = security.VolumeStep;
 			message.MinVolume = security.MinVolume;
+			message.MaxVolume = security.MaxVolume;
 			message.Multiplier = security.Multiplier;
 			message.Currency = security.Currency;
 			message.SecurityType = security.Type;
@@ -675,7 +668,6 @@ namespace StockSharp.Algo
 				BoardCode = portfolio.Board?.Code,
 				Currency = portfolio.Currency,
 				ClientCode = portfolio.ClientCode,
-				InternalId = portfolio.InternalId,
 				OriginalTransactionId = originalTransactionId,
 			};
 		}
@@ -690,8 +682,9 @@ namespace StockSharp.Algo
 			if (portfolio == null)
 				throw new ArgumentNullException(nameof(portfolio));
 
-			return new PortfolioChangeMessage
+			return new PositionChangeMessage
 			{
+				SecurityId = SecurityId.Money,
 				PortfolioName = portfolio.Name,
 				BoardCode = portfolio.Board?.Code,
 				LocalTime = portfolio.LocalTime,
@@ -719,7 +712,6 @@ namespace StockSharp.Algo
 				Currency = criteria.Currency,
 				PortfolioName = criteria.Name,
 				ClientCode = criteria.ClientCode,
-				InternalId = criteria.InternalId,
 			};
 		}
 
@@ -1070,6 +1062,67 @@ namespace StockSharp.Algo
 			return candle;
 		}
 
+		private static readonly SynchronizedDictionary<Type, Func<Candle>> _candleCreators = new SynchronizedDictionary<Type, Func<Candle>>();
+		private static readonly SynchronizedDictionary<Type, Func<CandleMessage>> _candleMessageCreators = new SynchronizedDictionary<Type, Func<CandleMessage>>();
+
+		/// <summary>
+		/// Create instance of <see cref="CandleMessage"/>.
+		/// </summary>
+		/// <param name="messageType">The type of candle message.</param>
+		/// <returns>Instance of <see cref="CandleMessage"/>.</returns>
+		public static CandleMessage CreateCandleMessage(this Type messageType)
+		{
+			if (messageType == null)
+				throw new ArgumentNullException(nameof(messageType));
+
+			if (!_candleMessageCreators.TryGetValue(messageType, out var creator))
+				throw new ArgumentException(LocalizedStrings.UnknownCandleType.Put(messageType), nameof(messageType));
+
+			return creator();
+		}
+
+		/// <summary>
+		/// All registered candle types.
+		/// </summary>
+		public static IEnumerable<Type> AllCandleTypes => _candleTypes.CachedKeys;
+
+		/// <summary>
+		/// Register new candle type.
+		/// </summary>
+		/// <typeparam name="TCandle">Candle type.</typeparam>
+		/// <typeparam name="TMessage">The type of candle message.</typeparam>
+		/// <param name="candleCreator"><see cref="Candle"/> instance creator.</param>
+		/// <param name="candleMessageCreator"><see cref="CandleMessage"/> instance creator.</param>
+		public static void RegisterCandle<TCandle, TMessage>(Func<TCandle> candleCreator, Func<TMessage> candleMessageCreator)
+			where TCandle : Candle
+			where TMessage : CandleMessage
+		{
+			RegisterCandle(typeof(TCandle), typeof(TMessage), candleCreator, candleMessageCreator);
+		}
+
+		/// <summary>
+		/// Register new candle type.
+		/// </summary>
+		/// <param name="candleType">Candle type.</param>
+		/// <param name="messageType">The type of candle message.</param>
+		/// <param name="candleCreator"><see cref="Candle"/> instance creator.</param>
+		/// <param name="candleMessageCreator"><see cref="CandleMessage"/> instance creator.</param>
+		public static void RegisterCandle(Type candleType, Type messageType, Func<Candle> candleCreator, Func<CandleMessage> candleMessageCreator)
+		{
+			if (messageType == null)
+				throw new ArgumentNullException(nameof(messageType));
+
+			if (candleCreator == null)
+				throw new ArgumentNullException(nameof(candleCreator));
+
+			if (candleMessageCreator == null)
+				throw new ArgumentNullException(nameof(candleMessageCreator));
+
+			_candleTypes.Add(candleType, messageType);
+			_candleCreators.Add(candleType, candleCreator);
+			_candleMessageCreators.Add(messageType, candleMessageCreator);
+		}
+
 		/// <summary>
 		/// To convert <see cref="CandleMessage"/> into candle.
 		/// </summary>
@@ -1084,37 +1137,10 @@ namespace StockSharp.Algo
 			if (security == null)
 				throw new ArgumentNullException(nameof(security));
 
-			Candle candle;
+			if (!_candleTypes.TryGetKey(message.GetType(), out var candleType) || !_candleCreators.TryGetValue(candleType, out var creator))
+				throw new ArgumentOutOfRangeException(nameof(message), message.Type, LocalizedStrings.WrongCandleType);
 
-			switch (message.Type)
-			{
-				case MessageTypes.CandleTimeFrame:
-					candle = new TimeFrameCandle();
-					break;
-
-				case MessageTypes.CandleVolume:
-					candle = new VolumeCandle();
-					break;
-
-				case MessageTypes.CandleTick:
-					candle = new TickCandle();
-					break;
-
-				case MessageTypes.CandleRange:
-					candle = new RangeCandle();
-					break;
-
-				case MessageTypes.CandleRenko:
-					candle = new RenkoCandle();
-					break;
-
-				case MessageTypes.CandlePnF:
-					candle = new PnFCandle();
-					break;
-
-				default:
-					throw new ArgumentOutOfRangeException(nameof(message), message.Type, LocalizedStrings.WrongCandleType);
-			}
+			var candle = creator();
 
 			candle.Security = security;
 			candle.Arg = message.Arg;
@@ -1299,8 +1325,8 @@ namespace StockSharp.Algo
 			var security = marketDepth.Security;
 
 			var depth = marketDepth.Update(
-				message.Bids.Select(c => c.ToQuote(security, getSecurity)),
-				message.Asks.Select(c => c.ToQuote(security, getSecurity)),
+				message.Bids.Select(c => c.ToQuote(Sides.Buy, security, getSecurity)),
+				message.Asks.Select(c => c.ToQuote(Sides.Sell, security, getSecurity)),
 				message.IsSorted, message.ServerTime);
 
 			depth.LocalTime = message.LocalTime;
@@ -1316,22 +1342,23 @@ namespace StockSharp.Algo
 		/// <returns>Message.</returns>
 		public static QuoteChange ToQuoteChange(this Quote quote)
 		{
-			return new QuoteChange(quote.OrderDirection, quote.Price, quote.Volume);
+			return new QuoteChange(quote.Price, quote.Volume, quote.OrdersCount, quote.Condition);
 		}
 
 		/// <summary>
 		/// To convert the message into quote.
 		/// </summary>
 		/// <param name="change">Message.</param>
+		/// <param name="side">Direction (buy or sell).</param>
 		/// <param name="security">Security.</param>
 		/// <param name="getSecurity">The function for getting instrument.</param>
 		/// <returns>Quote.</returns>
-		public static Quote ToQuote(this QuoteChange change, Security security, Func<SecurityId, Security> getSecurity = null)
+		public static Quote ToQuote(this QuoteChange change, Sides side, Security security, Func<SecurityId, Security> getSecurity = null)
 		{
 			if (!change.BoardCode.IsEmpty() && getSecurity != null)
 				security = getSecurity(new SecurityId { SecurityCode = security.Code, BoardCode = change.BoardCode });
 
-			var quote = new Quote(security, change.Price, change.Volume, change.Side);
+			var quote = new Quote(security, change.Price, change.Volume, side, change.OrdersCount, change.Condition);
 			change.CopyExtensionInfo(quote);
 			return quote;
 		}
@@ -1430,6 +1457,8 @@ namespace StockSharp.Algo
 				BoardCode = news.Board == null ? string.Empty : news.Board.Code,
 				Url = news.Url,
 				Priority = news.Priority,
+				Language = news.Language,
+				ExpiryDate = news.ExpiryDate,
 			};
 		}
 
@@ -1445,6 +1474,9 @@ namespace StockSharp.Algo
 		{
 			if (security == null)
 				throw new ArgumentNullException(nameof(security));
+
+			if (security == TraderHelper.AllSecurity)
+				return default;
 
 			string secCode;
 			string boardCode;
@@ -1646,6 +1678,8 @@ namespace StockSharp.Algo
 				Board = message.BoardCode.IsEmpty() ? null : exchangeInfoProvider?.GetOrCreateBoard(message.BoardCode),
 				LocalTime = message.LocalTime,
 				Priority = message.Priority,
+				Language = message.Language,
+				ExpiryDate = message.ExpiryDate,
 				Security = message.SecurityId == null ? null : new Security
 				{
 					Id = message.SecurityId.Value.SecurityCode
@@ -1676,9 +1710,6 @@ namespace StockSharp.Algo
 
 			if (!message.ClientCode.IsEmpty())
 				portfolio.ClientCode = message.ClientCode;
-
-			if (message.InternalId != null)
-				portfolio.InternalId = message.InternalId;
 
 			//if (message.State != null)
 			//	portfolio.State = message.State;

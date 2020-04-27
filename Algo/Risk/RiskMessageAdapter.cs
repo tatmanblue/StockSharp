@@ -17,6 +17,7 @@ namespace StockSharp.Algo.Risk
 {
 	using System;
 
+	using Ecng.Common;
 	using Ecng.ComponentModel;
 	using Ecng.Serialization;
 
@@ -56,7 +57,7 @@ namespace StockSharp.Algo.Risk
 		}
 
 		/// <inheritdoc />
-		public override void SendInMessage(Message message)
+		public override bool SendInMessage(Message message)
 		{
 			if (message.IsBack)
 			{
@@ -64,20 +65,19 @@ namespace StockSharp.Algo.Risk
 				{
 					message.UndoBack();
 
-					base.OnSendInMessage(message);
-					return;
+					return base.OnSendInMessage(message);
 				}
 			}
 
-			base.SendInMessage(message);
+			return base.SendInMessage(message);
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			ProcessRisk(message);
 			
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -119,7 +119,7 @@ namespace StockSharp.Algo.Risk
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new RiskMessageAdapter((IMessageAdapter)InnerAdapter.Clone())
+			return new RiskMessageAdapter(InnerAdapter.TypedClone())
 			{
 				RiskManager = RiskManager.Clone(),
 			};

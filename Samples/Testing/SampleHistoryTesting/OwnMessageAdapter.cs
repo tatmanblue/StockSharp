@@ -14,9 +14,9 @@ namespace SampleHistoryTesting
 			: base(transactionIdGenerator)
 		{
 			this.AddMarketDataSupport();
-			this.AddSupportedMarketDataType(MarketDataTypes.CandleTimeFrame);
+			this.AddSupportedMarketDataType(DataType.CandleTimeFrame);
 
-			this.AddSupportedOutMessage(MessageTypes.SecurityLookupResult);
+			this.AddSupportedResultMessage(MessageTypes.SecurityLookup);
 		}
 
 		/// <inheritdoc />
@@ -29,7 +29,7 @@ namespace SampleHistoryTesting
 		protected override IEnumerable<TimeSpan> GetTimeFrames(SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to)
 			=> _timeFrames;
 
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -58,7 +58,7 @@ namespace SampleHistoryTesting
 						});	
 					}
 
-					SendOutMessage(new SecurityLookupResultMessage { OriginalTransactionId = lookupMsg.TransactionId });
+					SendSubscriptionResult(lookupMsg);
 					break;
 				}
 
@@ -110,7 +110,7 @@ namespace SampleHistoryTesting
 									});
 								}
 							
-								SendOutMessage(new SubscriptionFinishedMessage { OriginalTransactionId = mdMsg.TransactionId });
+								SendSubscriptionResult(mdMsg);
 							}
 							else
 							{
@@ -128,7 +128,12 @@ namespace SampleHistoryTesting
 
 					break;
 				}
+			
+				default:
+					return false;
 			}
+
+			return true;
 		}
 	}
 }

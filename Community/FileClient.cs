@@ -21,17 +21,19 @@ namespace StockSharp.Community
 
 	using Ecng.Collections;
 	using Ecng.Common;
+	using Ecng.IO;
 
 	using MoreLinq;
+
+	using StockSharp.Community.Messages;
+	using StockSharp.Localization;
 
 	/// <summary>
 	/// The client for access to the service of work with files and documents.
 	/// </summary>
 	public class FileClient : BaseCommunityClient<IFileService>, IFileClient
 	{
-		private const int _partSize = 20 * 1024; // 10kb
-
-		private readonly CachedSynchronizedDictionary<long, FileData> _cache = new CachedSynchronizedDictionary<long, FileData>(); 
+		private readonly CachedSynchronizedDictionary<long, FileInfoMessage> _cache = new CachedSynchronizedDictionary<long, FileInfoMessage>(); 
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="FileClient"/>.
@@ -51,7 +53,16 @@ namespace StockSharp.Community
 		}
 
 		/// <inheritdoc />
-		public FileData GetFile(long id, Action<long> progress = null, Func<bool> cancel = null)
+		public bool Compression { get; set; } = true;
+
+		/// <inheritdoc />
+		public bool CheckDownloadedHash { get; set; }
+
+		/// <inheritdoc />
+		public int PartSize { get; set; } = 40 * 1024; // 40kb
+
+		/// <inheritdoc />
+		public FileInfoMessage GetFile(long id, Action<long> progress = null, Func<bool> cancel = null)
 		{
 			var data = GetFileInfo(id);
 			Download(data, progress, cancel);
@@ -59,13 +70,13 @@ namespace StockSharp.Community
 		}
 
 		/// <inheritdoc />
-		public FileData GetFileInfo(long id)
+		public FileInfoMessage GetFileInfo(long id)
 		{
-			return _cache.SafeAdd(id, key => Invoke(f => f.GetFileInfo(NullableSessionId ?? Guid.Empty, id)));
+			return _cache.SafeAdd(id, key => Invoke(f => f.GetFileInfo2(NullableSessionId ?? Guid.Empty, id)));
 		}
 
 		/// <inheritdoc />
-		public bool Download(FileData data, Action<long> progress = null, Func<bool> cancel = null)
+		public bool Download(FileInfoMessage data, Action<long> progress = null, Func<bool> cancel = null)
 		{
 			if (data == null)
 				throw new ArgumentNullException(nameof(data));
@@ -73,48 +84,152 @@ namespace StockSharp.Community
 			if (data.Body != null)
 				return true;
 
-			var operationId = Invoke(f => f.BeginDownload(SessionId, data.Id));
+			var tuple = Invoke(f => f.BeginDownload2(SessionId, data.Id, Compression));
 
-			var body = new List<byte>();
+			var body = Download(tuple.Item1, tuple.Item2, true, tuple.Item3, progress, cancel);
 
-			while (body.Count < data.BodyLength)
-			{
-				if (cancel?.Invoke() == true)
-				{
-					Invoke(f => f.FinishDownload(operationId, true));
-					return false;
-				}
+			if (body == null)
+				return false;
 
-				body.AddRange(Invoke(f => f.ProcessDownload(operationId, body.Count, _partSize)));
-				progress?.Invoke(body.Count);
-			}
+			data.Body = body;
 
-			Invoke(f => f.FinishDownload(operationId, false));
-			data.Body = body.ToArray();
 			return true;
 		}
 
 		/// <inheritdoc />
-		public void Update(FileData data, Action<long> progress = null, Func<bool> cancel = null)
+		public bool DownloadTemp(FileInfoMessage data, Guid operationId, Action<long> progress = null, Func<bool> cancel = null)
 		{
 			if (data == null)
 				throw new ArgumentNullException(nameof(data));
 
-			if (data.Body == null)
-				throw new ArgumentException(nameof(data));
+			var body = Download(operationId, data.BodyLength, false, data.Hash, progress, cancel);
 
-			if (data.Body.Length == 0)
-				throw new ArgumentOutOfRangeException(nameof(data));
+			if (body == null)
+				return false;
 
-			var operationId = Invoke(f => f.BeginUploadExisting(SessionId, data.Id));
-			Upload(operationId, data.Body, progress, cancel);
+			data.Body = body;
+			return true;
 		}
 
-		private long? Upload(Guid operationId, byte[] body, Action<long> progress, Func<bool> cancel)
+		private byte[] Download(Guid operationId, long size, bool checkHash, string hash, Action<long> progress, Func<bool> cancel)
 		{
+			if (operationId == Guid.Empty)
+				throw new ArgumentNullException(nameof(operationId));
+
+			var list = new List<byte>();
+
+			while (list.Count < size)
+			{
+				if (cancel?.Invoke() == true)
+				{
+					Invoke(f => f.FinishDownload(operationId, true));
+					return null;
+				}
+
+				var part = Invoke(f => f.ProcessDownload2(operationId, list.Count, PartSize));
+
+				if (Compression)
+					part = part.DeflateFrom();
+
+				list.AddRange(part);
+				progress?.Invoke(list.Count);
+			}
+
+			Invoke(f => f.FinishDownload(operationId, false));
+			
+			var body = list.ToArray();
+
+			if (checkHash && CheckDownloadedHash && !hash.IsEmpty())
+			{
+				var calc = body.Hash();
+
+				if (!hash.CompareIgnoreCase(calc))
+					throw new InvalidOperationException(LocalizedStrings.FileHashNotMatchKey.Put(hash, calc));
+			}
+
+			return body;
+		}
+
+		/// <inheritdoc />
+		public void Update(FileInfoMessage data, Action<long> progress = null, Func<bool> cancel = null)
+		{
+			if (data == null)
+				throw new ArgumentNullException(nameof(data));
+
+			if (data.Id == 0)
+				throw new ArgumentException(nameof(data));
+
+			var hash = data.Body.Hash();
+
+			var operationId = Invoke(f => f.BeginUploadExisting2(SessionId, data.Id, Compression, hash));
+			Upload(operationId, data, progress, cancel);
+		}
+
+		/// <inheritdoc />
+		public FileInfoMessage Upload(string fileName, byte[] body, bool isPublic, Action<long> progress = null, Func<bool> cancel = null)
+		{
+			if (fileName.IsEmpty())
+				throw new ArgumentNullException(nameof(fileName));
+
+			var hash = body.Hash();
+
+			var operationId = Invoke(f => f.BeginUpload2(SessionId, fileName, isPublic, Compression, hash));
+
+			var data = new FileInfoMessage
+			{
+				FileName = fileName,
+				Body = body,
+				BodyLength = body.LongLength,
+				IsPublic = isPublic,
+				CreationDate = DateTime.UtcNow,
+				Hash = hash,
+			};
+
+			var id = Upload(operationId, data, progress, cancel);
+
+			return id == null ? null : data;
+		}
+
+		/// <inheritdoc />
+		public Guid? UploadTemp(string fileName, byte[] body, Action<long> progress = null, Func<bool> cancel = null)
+		{
+			if (fileName.IsEmpty())
+				throw new ArgumentNullException(nameof(fileName));
+
+			var hash = body.Hash();
+
+			var operationId = Invoke(f => f.BeginUploadTemp(SessionId, fileName, Compression, hash));
+
+			var data = new FileInfoMessage
+			{
+				FileName = fileName,
+				Body = body,
+				BodyLength = body.LongLength,
+				CreationDate = DateTime.UtcNow,
+				Hash = hash,
+			};
+
+			var id = Upload(operationId, data, progress, cancel);
+
+			if (id == null)
+				return null;
+
+			return operationId;
+		}
+
+		private long? Upload(Guid operationId, FileInfoMessage file, Action<long> progress, Func<bool> cancel)
+		{
+			if (file == null)
+				throw new ArgumentNullException(nameof(file));
+
 			var sentCount = 0L;
 
-			foreach (var part in body.Batch(_partSize))
+			var body = file.Body;
+
+			if (Compression)
+				body = body.DeflateTo();
+
+			foreach (var part in body.Batch(PartSize))
 			{
 				if (cancel?.Invoke() == true)
 				{
@@ -135,41 +250,16 @@ namespace StockSharp.Community
 			if (id < 0)
 				ValidateError((byte)-id);
 
+			// temp upload
+			if (id == 0)
+				return 0;
+
+			if (file.Id == 0)
+				file.Id = id;
+
+			_cache.TryAdd(id, file);
+
 			return id;
-		}
-
-		/// <inheritdoc />
-		public FileData Upload(string fileName, byte[] body, bool isPublic, Action<long> progress = null, Func<bool> cancel = null)
-		{
-			if (fileName.IsEmpty())
-				throw new ArgumentNullException(nameof(fileName));
-
-			if (body == null)
-				throw new ArgumentNullException(nameof(body));
-
-			if (body.Length == 0)
-				throw new ArgumentOutOfRangeException(nameof(body));
-
-			var operationId = Invoke(f => f.BeginUpload(SessionId, fileName, isPublic));
-
-			var id = Upload(operationId, body, progress, cancel);
-
-			if (id == null)
-				return null;
-
-			var data = new FileData
-			{
-				Id = id.Value,
-				FileName = fileName,
-				Body = body,
-				BodyLength = body.LongLength,
-				IsPublic = isPublic,
-				CreationDate = DateTime.UtcNow
-			};
-
-			_cache.Add(id.Value, data);
-
-			return data;
 		}
 
 		/// <inheritdoc />

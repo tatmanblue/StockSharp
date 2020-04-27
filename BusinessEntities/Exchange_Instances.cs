@@ -1109,5 +1109,32 @@ namespace StockSharp.BusinessEntities
 			Name = "BTLG",
 			FullNameLoc = LocalizedStrings.BitalongKey,
 		};
+
+		/// <summary>
+		/// Information about <see cref="PrizmBit"/>.
+		/// </summary>
+		public static Exchange PrizmBit { get; } = new Exchange
+		{
+			Name = "PRZM",
+			FullNameLoc = LocalizedStrings.PrizmBitKey,
+		};
+
+		/// <summary>
+		/// Information about <see cref="DigitexFutures"/>.
+		/// </summary>
+		public static Exchange DigitexFutures { get; } = new Exchange
+		{
+			Name = "DGFT",
+			FullNameLoc = LocalizedStrings.DigitexFuturesKey,
+		};
+
+		/// <summary>
+		/// Information about <see cref="Bovespa"/>.
+		/// </summary>
+		public static Exchange Bovespa { get; } = new Exchange
+		{
+			Name = "B3",
+			FullNameLoc = LocalizedStrings.BrasilBolsaKey,
+		};
 	}
 }

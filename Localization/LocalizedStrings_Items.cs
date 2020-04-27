@@ -18,6 +18,226 @@ namespace StockSharp.Localization
 	partial class LocalizedStrings
 	{
 		/// <summary>
+		/// Application update
+		/// </summary>
+		public const string ApplicationUpdateKey = nameof(ApplicationUpdate);
+
+		/// <summary>
+		/// Application update
+		/// </summary>
+		public static string ApplicationUpdate => GetString(ApplicationUpdateKey);
+
+		/// <summary>
+		/// Following updates are available
+		/// </summary>
+		public const string FollowingUpdatesAvailableKey = nameof(FollowingUpdatesAvailable);
+
+		/// <summary>
+		/// Following updates are available
+		/// </summary>
+		public static string FollowingUpdatesAvailable => GetString(FollowingUpdatesAvailableKey);
+
+		/// <summary>
+		/// {0} is not found
+		/// </summary>
+		public const string ElementNotFoundParamsKey = nameof(ElementNotFoundParams);
+
+		/// <summary>
+		/// {0} is not found
+		/// </summary>
+		public static string ElementNotFoundParams => GetString(ElementNotFoundParamsKey);
+
+		/// <summary>
+		/// Exiting the application
+		/// </summary>
+		public const string ExitingApplicationKey = nameof(ExitingApplication);
+
+		/// <summary>
+		/// Exiting the application
+		/// </summary>
+		public static string ExitingApplication => GetString(ExitingApplicationKey);
+
+		/// <summary>
+		/// The application will be stopped in order to run installer
+		/// </summary>
+		public const string ExitingAppForInstallerKey = nameof(ExitingAppForInstaller);
+
+		/// <summary>
+		/// The application will be stopped in order to run installer
+		/// </summary>
+		public static string ExitingAppForInstaller => GetString(ExitingAppForInstallerKey);
+
+		/// <summary>
+		/// Update is not required
+		/// </summary>
+		public const string UpdateIsNotRequiredKey = nameof(UpdateIsNotRequired);
+
+		/// <summary>
+		/// Update is not required
+		/// </summary>
+		public static string UpdateIsNotRequired => GetString(UpdateIsNotRequiredKey);
+
+		/// <summary>
+		/// The installer was not found
+		/// </summary>
+		public const string InstallerNotFoundKey = nameof(InstallerNotFound);
+
+		/// <summary>
+		/// The installer was not found
+		/// </summary>
+		public static string InstallerNotFound => GetString(InstallerNotFoundKey);
+
+		/// <summary>
+		/// The installer was not found. In order to be able to update the applications you need to download application installer at {0}.
+		/// </summary>
+		public const string InstallerNotFoundDetailParamsKey = nameof(InstallerNotFoundDetailParams);
+
+		/// <summary>
+		/// The installer was not found. In order to be able to update the applications you need to download application installer at {0}.
+		/// </summary>
+		public static string InstallerNotFoundDetailParams => GetString(InstallerNotFoundDetailParamsKey);
+
+		/// <summary>
+		/// Application install folder
+		/// </summary>
+		public const string AppInstallDirKey = nameof(AppInstallDir);
+
+		/// <summary>
+		/// Application install folder
+		/// </summary>
+		public static string AppInstallDir => GetString(AppInstallDirKey);
+
+		/// <summary>
+		/// install
+		/// </summary>
+		public const string InstallKey = nameof(Install);
+
+		/// <summary>
+		/// install
+		/// </summary>
+		public static string Install => GetString(InstallKey);
+
+		/// <summary>
+		/// reset
+		/// </summary>
+		public const string ResetAppKey = nameof(ResetApp);
+
+		/// <summary>
+		/// reset
+		/// </summary>
+		public static string ResetApp => GetString(ResetAppKey);
+
+		/// <summary>
+		/// installing
+		/// </summary>
+		public const string InstallingKey = nameof(Installing);
+
+		/// <summary>
+		/// installing
+		/// </summary>
+		public static string Installing => GetString(InstallingKey);
+
+		/// <summary>
+		/// installed
+		/// </summary>
+		public const string InstalledKey = nameof(Installed);
+
+		/// <summary>
+		/// installed
+		/// </summary>
+		public static string Installed => GetString(InstalledKey);
+
+		/// <summary>
+		/// not installed
+		/// </summary>
+		public const string NotInstalledKey = nameof(NotInstalled);
+
+		/// <summary>
+		/// not installed
+		/// </summary>
+		public static string NotInstalled => GetString(NotInstalledKey);
+
+		/// <summary>
+		/// Applications
+		/// </summary>
+		public const string ApplicationsKey = nameof(Applications);
+
+		/// <summary>
+		/// Applications
+		/// </summary>
+		public static string Applications => GetString(ApplicationsKey);
+
+		/// <summary>
+		/// Plugins
+		/// </summary>
+		public const string PluginsKey = nameof(Plugins);
+
+		/// <summary>
+		/// Plugins
+		/// </summary>
+		public static string Plugins => GetString(PluginsKey);
+
+		/// <summary>
+		/// Update information
+		/// </summary>
+		public const string UpdateDetailsKey = nameof(UpdateDetails);
+
+		/// <summary>
+		/// Update information
+		/// </summary>
+		public static string UpdateDetails => GetString(UpdateDetailsKey);
+
+		/// <summary>
+		/// Update fail details
+		/// </summary>
+		public const string UpdateFailDetailsKey = nameof(UpdateFailDetails);
+
+		/// <summary>
+		/// Update fail details
+		/// </summary>
+		public static string UpdateFailDetails => GetString(UpdateFailDetailsKey);
+	
+		/// <summary>
+		/// S#.Installer
+		/// </summary>
+		public const string StockSharpInstallerKey = nameof(StockSharpInstaller);
+
+		/// <summary>
+		/// S#.Installer
+		/// </summary>
+		public static string StockSharpInstaller => GetString(StockSharpInstallerKey);
+
+		/// <summary>
+		/// Setup type
+		/// </summary>
+		public const string SetupTypeKey = nameof(SetupType);
+
+		/// <summary>
+		/// Setup type
+		/// </summary>
+		public static string SetupType => GetString(SetupTypeKey);
+
+		/// <summary>
+		/// Package version
+		/// </summary>
+		public const string PackageVersionKey = nameof(PackageVersion);
+
+		/// <summary>
+		/// Package version
+		/// </summary>
+		public static string PackageVersion => GetString(PackageVersionKey);
+
+		/// <summary>
+		/// Output directory
+		/// </summary>
+		public const string OutputDirectoryKey = nameof(OutputDirectory);
+
+		/// <summary>
+		/// Output directory
+		/// </summary>
+		public static string OutputDirectory => GetString(OutputDirectoryKey);
+
+		/// <summary>
 		/// Draw size
 		/// </summary>
 		public const string  DrawSizeKey = nameof(DrawSize);
@@ -3628,22 +3848,22 @@ namespace StockSharp.Localization
 		public static string Theta => GetString(ThetaKey);
 
 		/// <summary>
-		/// Initial margin (buy)
+		/// Initial margin to buy
 		/// </summary>
 		public const string Str304Key = nameof(Str304);
 
 		/// <summary>
-		/// Initial margin (buy)
+		/// Initial margin to buy
 		/// </summary>
 		public static string Str304 => GetString(Str304Key);
 
 		/// <summary>
-		/// Initial margin (sell)
+		/// Initial margin to sell
 		/// </summary>
 		public const string Str305Key = nameof(Str305);
 
 		/// <summary>
-		/// Initial margin (sell)
+		/// Initial margin to sell
 		/// </summary>
 		public static string Str305 => GetString(Str305Key);
 
@@ -5538,12 +5758,12 @@ namespace StockSharp.Localization
 		public static string Str538 => GetString(Str538Key);
 
 		/// <summary>
-		/// Combination
+		/// Matching
 		/// </summary>
 		public const string Str539Key = nameof(Str539);
 
 		/// <summary>
-		/// Combination
+		/// Matching
 		/// </summary>
 		public static string Str539 => GetString(Str539Key);
 
@@ -18178,12 +18398,12 @@ namespace StockSharp.Localization
 		public static string Str1875 => GetString(Str1875Key);
 
 		/// <summary>
-		/// SmartCOM connection timeout.
+		/// Connection timeout.
 		/// </summary>
 		public const string Str1876Key = nameof(Str1876);
 
 		/// <summary>
-		/// SmartCOM connection timeout.
+		/// Connection timeout.
 		/// </summary>
 		public static string Str1876 => GetString(Str1876Key);
 
@@ -41708,6 +41928,16 @@ namespace StockSharp.Localization
 		public static string TemplateTxtIndicator => GetString(TemplateTxtIndicatorKey);
 
 		/// <summary>
+		/// Position change txt export template.
+		/// </summary>
+		public const string TemplateTxtPositionChangeKey = nameof(TemplateTxtPositionChange);
+
+		/// <summary>
+		/// Position change txt export template.
+		/// </summary>
+		public static string TemplateTxtPositionChange => GetString(TemplateTxtPositionChangeKey);
+
+		/// <summary>
 		/// Depth template
 		/// </summary>
 		public const string TemplateDepthKey = nameof(TemplateDepth);
@@ -47695,7 +47925,7 @@ namespace StockSharp.Localization
 		/// <summary>
 		/// Split (after)
 		/// </summary>
-                public static string AfterSplit => GetString(AfterSplitKey);
+		public static string AfterSplit => GetString(AfterSplitKey);
 
 		/// <summary>
 		/// Split (before)
@@ -49478,6 +49708,26 @@ namespace StockSharp.Localization
 		public static string MinVolumeDesc => GetString(MinVolumeDescKey);
 
 		/// <summary>
+		/// Max volume
+		/// </summary>
+		public const string MaxVolumeKey = nameof(MaxVolume);
+
+		/// <summary>
+		/// Max volume
+		/// </summary>
+		public static string MaxVolume => GetString(MaxVolumeKey);
+
+		/// <summary>
+		/// Maximum volume allowed in order.
+		/// </summary>
+		public const string MaxVolumeDescKey = nameof(MaxVolumeDesc);
+
+		/// <summary>
+		/// Maximum volume allowed in order.
+		/// </summary>
+		public static string MaxVolumeDesc => GetString(MaxVolumeDescKey);
+
+		/// <summary>
 		/// Shortable
 		/// </summary>
 		public const string ShortableKey = nameof(Shortable);
@@ -49536,6 +49786,16 @@ namespace StockSharp.Localization
 		/// Volume {0} of order '{1}' is less than minimum allowed {2}.
 		/// </summary>
 		public static string OrderVolumeLessMin => GetString(OrderVolumeLessMinKey);
+
+		/// <summary>
+		/// Volume {0} of order '{1}' is more than maximum allowed {2}.
+		/// </summary>
+		public const string OrderVolumeMoreMaxKey = nameof(OrderVolumeMoreMax);
+
+		/// <summary>
+		/// Volume {0} of order '{1}' is more than maximum allowed {2}.
+		/// </summary>
+		public static string OrderVolumeMoreMax => GetString(OrderVolumeMoreMaxKey);
 
 		/// <summary>
 		/// Show strategy socket
@@ -50736,5 +50996,475 @@ namespace StockSharp.Localization
 		/// Connection '{0}' is not connected.
 		/// </summary>
 		public static string ConnectionIsNotConnected => GetString(ConnectionIsNotConnectedKey);
+
+		/// <summary>
+		/// CBOE
+		/// </summary>
+		public const string CboeKey = nameof(Cboe);
+
+		/// <summary>
+		/// CBOE
+		/// </summary>
+		public static string Cboe => GetString(CboeKey);
+
+		/// <summary>
+		/// ICE
+		/// </summary>
+		public const string IceKey = nameof(Ice);
+
+		/// <summary>
+		/// ICE
+		/// </summary>
+		public static string Ice => GetString(IceKey);
+
+		/// <summary>
+		/// UDP A
+		/// </summary>
+		public const string UdpAKey = nameof(UdpA);
+
+		/// <summary>
+		/// UDP A
+		/// </summary>
+		public static string UdpA => GetString(UdpAKey);
+
+		/// <summary>
+		/// UDP B
+		/// </summary>
+		public const string UdpBKey = nameof(UdpB);
+
+		/// <summary>
+		/// UDP B
+		/// </summary>
+		public static string UdpB => GetString(UdpBKey);
+
+		/// <summary>
+		/// UDP C
+		/// </summary>
+		public const string UdpCKey = nameof(UdpC);
+
+		/// <summary>
+		/// UDP C
+		/// </summary>
+		public static string UdpC => GetString(UdpCKey);
+
+		/// <summary>
+		/// Market By Order.
+		/// </summary>
+		public const string MarketByOrderKey = nameof(MarketByOrder);
+
+		/// <summary>
+		/// Market By Order.
+		/// </summary>
+		public static string MarketByOrder => GetString(MarketByOrderKey);
+
+		/// <summary>
+		/// Market By Price.
+		/// </summary>
+		public const string MarketByPriceKey = nameof(MarketByPrice);
+
+		/// <summary>
+		/// Market By Price.
+		/// </summary>
+		public static string MarketByPrice => GetString(MarketByPriceKey);
+
+		/// <summary>
+		/// Top Of Book.
+		/// </summary>
+		public const string TopOfBookKey = nameof(TopOfBook);
+
+		/// <summary>
+		/// Top Of Book.
+		/// </summary>
+		public static string TopOfBook => GetString(TopOfBookKey);
+
+		/// <summary>
+		/// MBO
+		/// </summary>
+		public const string MboKey = nameof(Mbo);
+
+		/// <summary>
+		/// MBO
+		/// </summary>
+		public static string Mbo => GetString(MboKey);
+
+		/// <summary>
+		/// MBP
+		/// </summary>
+		public const string MbpKey = nameof(Mbp);
+
+		/// <summary>
+		/// MBP
+		/// </summary>
+		public static string Mbp => GetString(MbpKey);
+
+		/// <summary>
+		/// TOB
+		/// </summary>
+		public const string TobKey = nameof(Tob);
+
+		/// <summary>
+		/// TOB
+		/// </summary>
+		public static string Tob => GetString(TobKey);
+
+		/// <summary>
+		/// Receipt
+		/// </summary>
+		public const string ReceiptKey = nameof(Receipt);
+
+		/// <summary>
+		/// Receipt
+		/// </summary>
+		public static string Receipt => GetString(ReceiptKey);
+
+		/// <summary>
+		/// GDR
+		/// </summary>
+		public const string GdrKey = nameof(Gdr);
+
+		/// <summary>
+		/// GDR
+		/// </summary>
+		public static string Gdr => GetString(GdrKey);
+
+		/// <summary>
+		/// Loan
+		/// </summary>
+		public const string LoanKey = nameof(Loan);
+
+		/// <summary>
+		/// Loan
+		/// </summary>
+		public static string Loan => GetString(LoanKey);
+
+		/// <summary>
+		/// Imbalance
+		/// </summary>
+		public const string ImbalanceKey = nameof(Imbalance);
+
+		/// <summary>
+		/// Imbalance
+		/// </summary>
+		public static string Imbalance => GetString(ImbalanceKey);
+
+		/// <summary>
+		/// Orders (bids)
+		/// </summary>
+		public const string OrdersBidsKey = nameof(OrdersBids);
+
+		/// <summary>
+		/// Orders (bids)
+		/// </summary>
+		public static string OrdersBids => GetString(OrdersBidsKey);
+
+		/// <summary>
+		/// Orders (asks)
+		/// </summary>
+		public const string OrdersAsksKey = nameof(OrdersAsks);
+
+		/// <summary>
+		/// Orders (asks)
+		/// </summary>
+		public static string OrdersAsks => GetString(OrdersAsksKey);
+
+		/// <summary>
+		/// Error unsubscription market-data.
+		/// </summary>
+		public const string UnsubscribeErrorKey = nameof(UnsubscribeError);
+
+		/// <summary>
+		/// Error unsubscription market-data.
+		/// </summary>
+		public static string UnsubscribeError => GetString(UnsubscribeErrorKey);
+
+		/// <summary>
+		/// The storage '{0}' has version {1} is newer than the app {2}.
+		/// </summary>
+		public const string StorageVersionNewerKey = nameof(StorageVersionNewer);
+
+		/// <summary>
+		/// The storage '{0}' has version {1} is newer than the app {2}.
+		/// </summary>
+		public static string StorageVersionNewer => GetString(StorageVersionNewerKey);
+
+		/// <summary>
+		/// oneZERO
+		/// </summary>
+		public const string OneZeroKey = nameof(OneZero);
+
+		/// <summary>
+		/// oneZERO
+		/// </summary>
+		public static string OneZero => GetString(OneZeroKey);
+
+		/// <summary>
+		/// Indicative
+		/// </summary>
+		public const string IndicativeKey = nameof(Indicative);
+
+		/// <summary>
+		/// Indicative
+		/// </summary>
+		public static string Indicative => GetString(IndicativeKey);
+
+		/// <summary>
+		/// I
+		/// </summary>
+		public const string IndicativeCharKey = nameof(IndicativeChar);
+
+		/// <summary>
+		/// I
+		/// </summary>
+		public static string IndicativeChar => GetString(IndicativeCharKey);
+
+		/// <summary>
+		/// Quote condition.
+		/// </summary>
+		public const string QuoteConditionKey = nameof(QuoteCondition);
+
+		/// <summary>
+		/// Quote condition.
+		/// </summary>
+		public static string QuoteCondition => GetString(QuoteConditionKey);
+
+		/// <summary>
+		/// Margin section.
+		/// </summary>
+		public const string MarginSectionKey = nameof(MarginSection);
+
+		/// <summary>
+		/// Margin section.
+		/// </summary>
+		public static string MarginSection => GetString(MarginSectionKey);
+
+		/// <summary>
+		/// PrizmBit
+		/// </summary>
+		public const string PrizmBitKey = nameof(PrizmBit);
+
+		/// <summary>
+		/// PrizmBit
+		/// </summary>
+		public static string PrizmBit => GetString(PrizmBitKey);
+
+		/// <summary>
+		/// Downloaded hash '{0}' not match with calculated '{1}'.
+		/// </summary>
+		public const string FileHashNotMatchKey = nameof(FileHashNotMatch);
+
+		/// <summary>
+		/// Downloaded hash '{0}' not match with calculated '{1}'.
+		/// </summary>
+		public static string FileHashNotMatch => GetString(FileHashNotMatchKey);
+
+		/// <summary>
+		/// File hash
+		/// </summary>
+		public const string FileHashKey = nameof(FileHash);
+
+		/// <summary>
+		/// File hash
+		/// </summary>
+		public static string FileHash => GetString(FileHashKey);
+
+		/// <summary>
+		/// Low bid
+		/// </summary>
+		public const string LowBidPriceKey = nameof(LowBidPrice);
+
+		/// <summary>
+		/// Low bid
+		/// </summary>
+		public static string LowBidPrice => GetString(LowBidPriceKey);
+
+		/// <summary>
+		/// Lowest bid during the session.
+		/// </summary>
+		public const string LowBidPriceDescKey = nameof(LowBidPriceDesc);
+
+		/// <summary>
+		/// Lowest bid during the session.
+		/// </summary>
+		public static string LowBidPriceDesc => GetString(LowBidPriceDescKey);
+
+		/// <summary>
+		/// High ask
+		/// </summary>
+		public const string HighAskPriceKey = nameof(HighAskPrice);
+
+		/// <summary>
+		/// High ask
+		/// </summary>
+		public static string HighAskPrice => GetString(HighAskPriceKey);
+
+		/// <summary>
+		/// Highest ask during the session.
+		/// </summary>
+		public const string HighAskPriceDescKey = nameof(HighAskPriceDesc);
+
+		/// <summary>
+		/// Highest ask during the session.
+		/// </summary>
+		public static string HighAskPriceDesc => GetString(HighAskPriceDescKey);
+
+		/// <summary>
+		/// Low trade vol
+		/// </summary>
+		public const string LastTradeVolumeLowKey = nameof(LastTradeVolumeLow);
+
+		/// <summary>
+		/// Low trade vol
+		/// </summary>
+		public static string LastTradeVolumeLow => GetString(LastTradeVolumeLowKey);
+
+		/// <summary>
+		/// Lowest last trade volume.
+		/// </summary>
+		public const string LastTradeVolumeLowDescKey = nameof(LastTradeVolumeLowDesc);
+
+		/// <summary>
+		/// Lowest last trade volume.
+		/// </summary>
+		public static string LastTradeVolumeLowDesc => GetString(LastTradeVolumeLowDescKey);
+
+		/// <summary>
+		/// High trade vol
+		/// </summary>
+		public const string LastTradeVolumeHighKey = nameof(LastTradeVolumeHigh);
+
+		/// <summary>
+		/// High trade vol
+		/// </summary>
+		public static string LastTradeVolumeHigh => GetString(LastTradeVolumeHighKey);
+
+		/// <summary>
+		/// Highest last trade volume.
+		/// </summary>
+		public const string LastTradeVolumeHighDescKey = nameof(LastTradeVolumeHighDesc);
+
+		/// <summary>
+		/// Highest last trade volume.
+		/// </summary>
+		public static string LastTradeVolumeHighDesc => GetString(LastTradeVolumeHighDescKey);
+
+		/// <summary>
+		/// Max support version.
+		/// </summary>
+		public const string MaxSupportVersionKey = nameof(MaxSupportVersion);
+
+		/// <summary>
+		/// Max support version.
+		/// </summary>
+		public static string MaxSupportVersion => GetString(MaxSupportVersionKey);
+
+		/// <summary>
+		/// Gaps
+		/// </summary>
+		public const string GapsKey = nameof(Gaps);
+
+		/// <summary>
+		/// Gaps
+		/// </summary>
+		public static string Gaps => GetString(GapsKey);
+
+		/// <summary>
+		/// Make gap in incremental messages for test purpose.
+		/// </summary>
+		public const string GapsDescKey = nameof(GapsDesc);
+
+		/// <summary>
+		/// Make gap in incremental messages for test purpose.
+		/// </summary>
+		public static string GapsDesc => GetString(GapsDescKey);
+
+		/// <summary>
+		/// Heikin Ashi
+		/// </summary>
+		public const string HeikinAshiKey = nameof(HeikinAshi);
+
+		/// <summary>
+		/// Heikin Ashi
+		/// </summary>
+		public static string HeikinAshi => GetString(HeikinAshiKey);
+
+		/// <summary>
+		/// Subscription {0} in state {1} and cannot be stopped.
+		/// </summary>
+		public const string SubscriptionInStateKey = nameof(SubscriptionInState);
+
+		/// <summary>
+		/// Subscription {0} in state {1} and cannot be stopped.
+		/// </summary>
+		public static string SubscriptionInState => GetString(SubscriptionInStateKey);
+
+		/// <summary>
+		/// Subscription {0} notify subscriber {1}.
+		/// </summary>
+		public const string SubscriptionNotifySubscriberKey = nameof(SubscriptionNotifySubscriber);
+
+		/// <summary>
+		/// Subscription {0} notify subscriber {1}.
+		/// </summary>
+		public static string SubscriptionNotifySubscriber => GetString(SubscriptionNotifySubscriberKey);
+
+		/// <summary>
+		/// Online subscription {0} removed.
+		/// </summary>
+		public const string OnlineSubscriptionRemovedKey = nameof(OnlineSubscriptionRemoved);
+
+		/// <summary>
+		/// Online subscription {0} removed.
+		/// </summary>
+		public static string OnlineSubscriptionRemoved => GetString(OnlineSubscriptionRemovedKey);
+
+		/// <summary>
+		/// Digitex Futures
+		/// </summary>
+		public const string DigitexFuturesKey = nameof(DigitexFutures);
+
+		/// <summary>
+		/// Digitex Futures
+		/// </summary>
+		public static string DigitexFutures => GetString(DigitexFuturesKey);
+
+		/// <summary>
+		/// Orders (margin)
+		/// </summary>
+		public const string OrdersMarginKey = nameof(OrdersMargin);
+
+		/// <summary>
+		/// Orders (margin)
+		/// </summary>
+		public static string OrdersMargin => GetString(OrdersMarginKey);
+
+		/// <summary>
+		/// License N{0} is not support on current platform.
+		/// </summary>
+		public const string LicenseNotSupportPlatformKey = nameof(LicenseNotSupportPlatform);
+
+		/// <summary>
+		/// License N{0} is not support on current platform.
+		/// </summary>
+		public static string LicenseNotSupportPlatform => GetString(LicenseNotSupportPlatformKey);
+
+		/// <summary>
+		/// OS
+		/// </summary>
+		public const string OSKey = nameof(OS);
+
+		/// <summary>
+		/// OS
+		/// </summary>
+		public static string OS => GetString(OSKey);
+
+		/// <summary>
+		/// UDP Dumper
+		/// </summary>
+		public const string UdpDumperKey = nameof(UdpDumper);
+
+		/// <summary>
+		/// UDP Dumper
+		/// </summary>
+		public static string UdpDumper => GetString(UdpDumperKey);
 	}
 }

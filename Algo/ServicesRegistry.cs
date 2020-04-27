@@ -1,5 +1,7 @@
 namespace StockSharp.Algo
 {
+	using System;
+
 	using Ecng.Common;
 	using Ecng.Configuration;
 	using Ecng.Interop;
@@ -97,18 +99,26 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// Connector.
 		/// </summary>
+		[Obsolete("Use Connector property.")]
+		// ReSharper disable InconsistentNaming
 		public static IConnector IConnector => ConfigManager.GetService<IConnector>();
+		// ReSharper restore InconsistentNaming
 		
 		/// <summary>
 		/// Log manager.
 		/// </summary>
-		public static LogManager LogManager => ConfigManager.TryGetService<LogManager>();
+		public static LogManager LogManager => LogManager.Instance;
 
 		/// <summary>
 		/// The storage of trade objects.
 		/// </summary>
 		public static IEntityRegistry EntityRegistry => ConfigManager.GetService<IEntityRegistry>();
 		
+		/// <summary>
+		/// Security native identifier storage.
+		/// </summary>
+		public static INativeIdStorage TryNativeIdStorage => ConfigManager.TryGetService<INativeIdStorage>();
+
 		/// <summary>
 		/// Security native identifier storage.
 		/// </summary>
@@ -132,7 +142,7 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// The client for access to the StockSharp notification service.
 		/// </summary>
-		public static INotificationClient TryNotificationClient => ConfigManager.GetService<INotificationClient>();
+		public static INotificationClient TryNotificationClient => ConfigManager.TryGetService<INotificationClient>();
 
 		/// <summary>
 		/// The client for access to the service of work with files and documents.

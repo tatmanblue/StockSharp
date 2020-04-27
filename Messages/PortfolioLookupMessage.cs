@@ -42,13 +42,18 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			return CopyTo(new PortfolioLookupMessage { SecurityId = SecurityId } );
+			var clone = new PortfolioLookupMessage { SecurityId = SecurityId };
+			CopyTo(clone);
+			return clone;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
 			var str = base.ToString();
+
+			if (!IsSubscribe)
+				str += $",IsSubscribe={IsSubscribe}";
 
 			if (SecurityId != null)
 				str += $",Sec={SecurityId}";

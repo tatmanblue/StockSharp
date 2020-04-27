@@ -18,6 +18,8 @@ namespace StockSharp.Algo.PnL
 	using System;
 	using System.Collections.Generic;
 
+	using Ecng.Common;
+
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -46,10 +48,10 @@ namespace StockSharp.Algo.PnL
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			PnLManager.ProcessMessage(message);
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -63,8 +65,9 @@ namespace StockSharp.Algo.PnL
 
 			foreach (var manager in list)
 			{
-				base.OnInnerAdapterNewOutMessage(new PortfolioChangeMessage
+				base.OnInnerAdapterNewOutMessage(new PositionChangeMessage
 				{
+					SecurityId = SecurityId.Money,
 					ServerTime = message.LocalTime,
 					PortfolioName = manager.PortfolioName,
 				}
@@ -81,7 +84,7 @@ namespace StockSharp.Algo.PnL
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new PnLMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new PnLMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

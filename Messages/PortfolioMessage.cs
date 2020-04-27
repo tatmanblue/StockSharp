@@ -50,7 +50,7 @@ namespace StockSharp.Messages
 	/// </summary>
 	[DataContract]
 	[Serializable]
-	public class PortfolioMessage : BaseSubscriptionIdMessage,
+	public class PortfolioMessage : BaseSubscriptionIdMessage<PortfolioMessage>,
 	        ISubscriptionMessage, IPortfolioNameMessage
 	{
 		/// <inheritdoc />
@@ -107,12 +107,6 @@ namespace StockSharp.Messages
 		[DataMember]
 		public bool IsSubscribe { get; set; }
 
-		/// <summary>
-		/// Internal identifier.
-		/// </summary>
-		[DataMember]
-		public Guid? InternalId { get; set; }
-
 		/// <inheritdoc />
 		[DataMember]
 		[DisplayNameLoc(LocalizedStrings.Str343Key)]
@@ -156,7 +150,7 @@ namespace StockSharp.Messages
 				str += $",Curr={Currency.Value}";
 
 			if (!BoardCode.IsEmpty())
-				str += $",TransId={TransactionId}";
+				str += $",Board={BoardCode}";
 
 			if (IsSubscribe)
 				str += $",IsSubscribe={IsSubscribe}";
@@ -170,21 +164,8 @@ namespace StockSharp.Messages
 			return str;
 		}
 
-		/// <summary>
-		/// Create a copy of <see cref="PortfolioMessage"/>.
-		/// </summary>
-		/// <returns>Copy.</returns>
-		public override Message Clone()
-		{
-			return CopyTo(new PortfolioMessage());
-		}
-
-		/// <summary>
-		/// Copy the message into the <paramref name="destination" />.
-		/// </summary>
-		/// <param name="destination">The object, to which copied information.</param>
-		/// <returns>The object, to which copied information.</returns>
-		public PortfolioMessage CopyTo(PortfolioMessage destination)
+		/// <inheritdoc />
+		public override void CopyTo(PortfolioMessage destination)
 		{
 			base.CopyTo(destination);
 
@@ -195,11 +176,8 @@ namespace StockSharp.Messages
 			//destination.State = State;
 			destination.TransactionId = TransactionId;
 			destination.ClientCode = ClientCode;
-			destination.InternalId = InternalId;
 			destination.From = From;
 			destination.To = To;
-
-			return destination;
 		}
 	}
 }

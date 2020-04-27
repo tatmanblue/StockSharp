@@ -18,6 +18,7 @@ namespace StockSharp.Algo.Storages.Binary
 	using System;
 	using System.Collections;
 	using System.Collections.Generic;
+	using System.Diagnostics;
 	using System.IO;
 	using System.Linq;
 
@@ -26,6 +27,7 @@ namespace StockSharp.Algo.Storages.Binary
 	using Ecng.Reflection;
 	using Ecng.Serialization;
 
+	using StockSharp.Localization;
 	using StockSharp.Messages;
 
 	static class MarketDataVersions
@@ -114,23 +116,23 @@ namespace StockSharp.Algo.Storages.Binary
 		{
 			stream.WriteByte((byte)Version.Major);
 			stream.WriteByte((byte)Version.Minor);
-			stream.Write(Count);
-			stream.Write(PriceStep);
+			stream.WriteEx(Count);
+			stream.WriteEx(PriceStep);
 
 			if (Version < MarketDataVersions.Version40)
-				stream.Write(0m); // ранее был StepPrice
+				stream.WriteEx(0m); // ранее был StepPrice
 
-			stream.Write(FirstTime);
-			stream.Write(LastTime);
+			stream.WriteEx(FirstTime);
+			stream.WriteEx(LastTime);
 
 			if (Version < MarketDataVersions.Version40)
 				return;
 
-			stream.Write(LocalOffset);
+			stream.WriteEx(LocalOffset);
 
 			// размер под дополнительную информацию.
 			// пока этой информации нет.
-			stream.Write((short)0);
+			stream.WriteEx((short)0);
 		}
 
 		public override void Read(Stream stream)
@@ -165,8 +167,8 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version43)
 				return;
 
-			stream.Write(FirstFractionalPrice);
-			stream.Write(LastFractionalPrice);
+			stream.WriteEx(FirstFractionalPrice);
+			stream.WriteEx(LastFractionalPrice);
 		}
 
 		protected void ReadFractionalPrice(Stream stream)
@@ -182,8 +184,8 @@ namespace StockSharp.Algo.Storages.Binary
 		{
 			WriteFractionalPrice(stream);
 
-			stream.Write(/*FirstPriceStep*/0m);
-			stream.Write(LastPriceStep);
+			stream.WriteEx(/*FirstPriceStep*/0m);
+			stream.WriteEx(LastPriceStep);
 		}
 
 		protected void ReadPriceStep(Stream stream)
@@ -199,9 +201,9 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version44)
 				return;
 
-			stream.Write(VolumeStep);
-			stream.Write(FirstFractionalVolume);
-			stream.Write(LastFractionalVolume);
+			stream.WriteEx(VolumeStep);
+			stream.WriteEx(FirstFractionalVolume);
+			stream.WriteEx(LastFractionalVolume);
 		}
 
 		protected void ReadFractionalVolume(Stream stream)
@@ -219,8 +221,8 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < minVersion)
 				return;
 
-			stream.Write(FirstLocalTime);
-			stream.Write(LastLocalTime);
+			stream.WriteEx(FirstLocalTime);
+			stream.WriteEx(LastLocalTime);
 		}
 
 		protected void ReadLocalTime(Stream stream, Version minVersion)
@@ -234,11 +236,11 @@ namespace StockSharp.Algo.Storages.Binary
 
 		protected void WriteOffsets(Stream stream)
 		{
-			stream.Write(FirstLocalOffset);
-			stream.Write(LastLocalOffset);
+			stream.WriteEx(FirstLocalOffset);
+			stream.WriteEx(LastLocalOffset);
 
-			stream.Write(FirstServerOffset);
-			stream.Write(LastServerOffset);
+			stream.WriteEx(FirstServerOffset);
+			stream.WriteEx(LastServerOffset);
 		}
 
 		protected void ReadOffsets(Stream stream)
@@ -255,8 +257,8 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < minVersion)
 				return;
 
-			stream.Write(FirstItemLocalOffset);
-			stream.Write(LastItemLocalOffset);
+			stream.WriteEx(FirstItemLocalOffset);
+			stream.WriteEx(LastItemLocalOffset);
 		}
 
 		protected void ReadItemLocalOffset(Stream stream, Version minVersion)
@@ -273,8 +275,8 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < minVersion)
 				return;
 
-			stream.Write(FirstItemLocalTime);
-			stream.Write(LastItemLocalTime);
+			stream.WriteEx(FirstItemLocalTime);
+			stream.WriteEx(LastItemLocalTime);
 		}
 
 		protected void ReadItemLocalTime(Stream stream, Version minVersion)
@@ -400,11 +402,12 @@ namespace StockSharp.Algo.Storages.Binary
 			}
 		}
 
-		protected BinaryMarketDataSerializer(SecurityId securityId, int dataSize, Version version, IExchangeInfoProvider exchangeInfoProvider)
+		protected BinaryMarketDataSerializer(SecurityId securityId, object arg, int dataSize, Version version, IExchangeInfoProvider exchangeInfoProvider)
 		{
 			if (securityId == null)
 				throw new ArgumentNullException(nameof(securityId));
 
+			Arg = arg;
 			SecurityId = securityId;
 			DataSize = dataSize;
 
@@ -412,6 +415,7 @@ namespace StockSharp.Algo.Storages.Binary
 			ExchangeInfoProvider = exchangeInfoProvider ?? throw new ArgumentNullException(nameof(exchangeInfoProvider));
 		}
 
+		protected object Arg { get; }
 		protected SecurityId SecurityId { get; }
 		protected int DataSize { get; }
 		protected Version Version { get; set; }
@@ -438,23 +442,39 @@ namespace StockSharp.Algo.Storages.Binary
 			return Deserialize(stream, metaInfo);
 		}
 
+		private void CheckVersion(TMetaInfo metaInfo, string operation)
+		{
+			if (metaInfo.Version <= Version)
+				return;
+
+			var name = $"{SecurityId}/{typeof(TData)}/{Arg}";
+			Debug.WriteLine($"Storage ({operation}) !! DISABLED !!: {name}");
+
+			throw new InvalidOperationException(LocalizedStrings.StorageVersionNewerKey.Put(name, metaInfo.Version, Version));
+		}
+
 		public void Serialize(Stream stream, IEnumerable<TData> data, IMarketDataMetaInfo metaInfo)
 		{
+			var typedInfo = (TMetaInfo)metaInfo;
+			CheckVersion(typedInfo, "Save");
 			//var temp = new MemoryStream { Capacity = DataSize * data.Count() * 2 };
 
 			using (var writer = new BitArrayWriter(stream))
-				OnSave(writer, data, (TMetaInfo)metaInfo);
+				OnSave(writer, data, typedInfo);
 
 			//return stream.To<byte[]>();
 		}
 
 		public IEnumerable<TData> Deserialize(Stream stream, IMarketDataMetaInfo metaInfo)
 		{
+			var typedInfo = (TMetaInfo)metaInfo;
+			CheckVersion(typedInfo, "Load");
+
 			var data = new MemoryStream();
 			stream.CopyTo(data);
 			stream.Dispose();
 
-			return new SimpleEnumerable<TData>(() => new MarketDataEnumerator(this, new BitArrayReader(data), (TMetaInfo)metaInfo));
+			return new SimpleEnumerable<TData>(() => new MarketDataEnumerator(this, new BitArrayReader(data), typedInfo));
 		}
 
 		protected abstract void OnSave(BitArrayWriter writer, IEnumerable<TData> data, TMetaInfo metaInfo);

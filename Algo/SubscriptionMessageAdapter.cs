@@ -27,15 +27,12 @@ namespace StockSharp.Algo
 
 			public SubscriptionStates State { get; set; } = SubscriptionStates.Stopped;
 
-			public readonly CachedSynchronizedSet<long> Subscribers = new CachedSynchronizedSet<long>();
-
 			public override string ToString() => Subscription.ToString();
 		}
 
 		private readonly SyncObject _sync = new SyncObject();
 
 		private readonly Dictionary<long, ISubscriptionMessage> _historicalRequests = new Dictionary<long, ISubscriptionMessage>();
-		private readonly PairSet<Tuple<DataType, SecurityId>, SubscriptionInfo> _subscriptionsByKey = new PairSet<Tuple<DataType, SecurityId>, SubscriptionInfo>();
 		private readonly Dictionary<long, SubscriptionInfo> _subscriptionsById = new Dictionary<long, SubscriptionInfo>();
 		private readonly Dictionary<long, long> _replaceId = new Dictionary<long, long>();
 
@@ -57,73 +54,52 @@ namespace StockSharp.Algo
 		public bool IsRestoreSubscriptionOnErrorReconnect { get; set; }
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
 				case MessageTypes.Reset:
-					ProcessReset(message);
-					break;
+					return ProcessReset(message);
 
 				case MessageTypes.MarketData:
-					ProcessInMarketDataMessage((MarketDataMessage)message);
-					break;
-
 				case MessageTypes.Portfolio:
-					ProcessInPortfolioMessage((PortfolioMessage)message);
-					break;
-
 				case MessageTypes.SecurityLookup:
-					ProcessSecurityLookupMessage((SecurityLookupMessage)message);
-					break;
-
 				case MessageTypes.BoardLookup:
-					ProcessBoardLookupMessage((BoardLookupMessage)message);
-					break;
-
 				case MessageTypes.TimeFrameLookup:
-					ProcessTimeFrameLookupMessage((TimeFrameLookupMessage)message);
-					break;
-
 				case MessageTypes.UserLookup:
-					ProcessUserLookupMessage((UserLookupMessage)message);
-					break;
-
 				case MessageTypes.PortfolioLookup:
-					ProcessPortfolioLookupMessage((PortfolioLookupMessage)message);
-					break;
+					return ProcessInSubscriptionMessage((ISubscriptionMessage)message);
 
 				case MessageTypes.OrderStatus:
-					ProcessOrderStatusMessage((OrderStatusMessage)message);
-					break;
+					return ProcessOrderStatusMessage((OrderStatusMessage)message);
 
 				default:
-					base.OnSendInMessage(message);
-					break;
+					return base.OnSendInMessage(message);
 			}
 		}
 
-		private void ProcessReset(Message message)
+		private bool ProcessReset(Message message)
 		{
 			lock (_sync)
 			{
 				_historicalRequests.Clear();
-				_subscriptionsByKey.Clear();
 				_subscriptionsById.Clear();
 				_replaceId.Clear();
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		private void ChangeState(SubscriptionInfo info, SubscriptionStates state)
 		{
+			var id = info.Subscription.TransactionId;
+
 			const string text = "Subscription {0} {1}->{2}.";
 
 			if (info.State.IsOk(state))
-				this.AddInfoLog(text, info.Subscription.TransactionId, info.State, state);
+				this.AddInfoLog(text, id, info.State, state);
 			else
-				this.AddWarningLog(text, info.Subscription.TransactionId, info.State, state);
+				this.AddWarningLog(text, id, info.State, state);
 
 			info.State = state;
 		}
@@ -149,62 +125,39 @@ namespace StockSharp.Algo
 				prevOriginId = originIdMsg1.OriginalTransactionId = TryReplaceOriginId(newOriginId);
 			}
 
-			bool UpdateSubscriptionResult(SubscriptionResponseMessage responseMsg)
-			{
-				HashSet<long> subscribers = null;
-
-				lock (_sync)
-				{
-					if (responseMsg.IsOk())
-					{
-						if (_subscriptionsById.TryGetValue(prevOriginId, out var info))
-						{
-							// no need send response after re-subscribe cause response was handled prev time
-							if (_replaceId.ContainsKey(newOriginId))
-							{
-								if (info.State != SubscriptionStates.Stopped)
-									return false;
-							}
-							else
-								ChangeState(info, SubscriptionStates.Active);
-						}
-					}
-					else
-					{
-						if (!_historicalRequests.Remove(prevOriginId))
-						{
-							if (_subscriptionsById.TryGetAndRemove(prevOriginId, out var info))
-							{
-								ChangeState(info, SubscriptionStates.Error);
-
-								_replaceId.Remove(newOriginId);
-								_subscriptionsByKey.RemoveByValue(info);
-
-								var set = new HashSet<long>(info.Subscribers.Cache);
-								set.Remove(prevOriginId);
-								subscribers = set;
-							}
-						}
-					}
-				}
-
-				if (subscribers != null)
-				{
-					foreach (var subscriber in subscribers)
-					{
-						base.OnInnerAdapterNewOutMessage(subscriber.CreateSubscriptionResponse(responseMsg.Error));
-					}
-				}
-
-				return true;
-			}
-
 			switch (message.Type)
 			{
 				case MessageTypes.SubscriptionResponse:
 				{
-					if (!UpdateSubscriptionResult((SubscriptionResponseMessage)message))
-						return;
+					lock (_sync)
+					{
+						if (((SubscriptionResponseMessage)message).IsOk())
+						{
+							if (_subscriptionsById.TryGetValue(prevOriginId, out var info))
+							{
+								// no need send response after re-subscribe cause response was handled prev time
+								if (_replaceId.ContainsKey(newOriginId))
+								{
+									if (info.State != SubscriptionStates.Stopped)
+										return;
+								}
+								else
+									ChangeState(info, SubscriptionStates.Active);
+							}
+						}
+						else
+						{
+							if (!_historicalRequests.Remove(prevOriginId))
+							{
+								if (_subscriptionsById.TryGetAndRemove(prevOriginId, out var info))
+								{
+									ChangeState(info, SubscriptionStates.Error);
+
+									_replaceId.Remove(newOriginId);
+								}
+							}
+						}
+					}
 
 					break;
 				}
@@ -231,9 +184,6 @@ namespace StockSharp.Algo
 				}
 
 				case MessageTypes.SubscriptionFinished:
-				case MessageTypes.SecurityLookupResult:
-				case MessageTypes.PortfolioLookupResult:
-				case MessageTypes.OrderStatus:
 				{
 					lock (_sync)
 					{
@@ -252,23 +202,18 @@ namespace StockSharp.Algo
 					{
 						lock (_sync)
 						{
-							if (subscrMsg.OriginalTransactionId != 0 && _historicalRequests.ContainsKey(subscrMsg.OriginalTransactionId))
-								subscrMsg.SetSubscriptionIds(subscriptionId: subscrMsg.OriginalTransactionId);
+							if (subscrMsg.GetSubscriptionIds().Length == 0)
+							{
+								if (subscrMsg.OriginalTransactionId != 0 && _historicalRequests.ContainsKey(subscrMsg.OriginalTransactionId))
+									subscrMsg.SetSubscriptionIds(subscriptionId: subscrMsg.OriginalTransactionId);
+							}
 							else
 							{
-								if (subscrMsg.OriginalTransactionId != 0 && _subscriptionsById.TryGetValue(subscrMsg.OriginalTransactionId, out var info))
+								lock (_sync)
 								{
+									if (_replaceId.Count > 0)
+										subscrMsg.SetSubscriptionIds(subscrMsg.GetSubscriptionIds().Select(id => _replaceId.TryGetValue2(id) ?? id).ToArray());
 								}
-								else
-								{
-									var dataType = message.Type.ToDataType((message as CandleMessage)?.Arg ?? (message as ExecutionMessage)?.ExecutionType);
-									var secId = GetSecurityId(dataType, (subscrMsg as ISecurityIdMessage)?.SecurityId ?? default);
-
-									if (!_subscriptionsByKey.TryGetValue(Tuple.Create(dataType, secId), out info))
-										break;
-								}
-								
-								subscrMsg.SetSubscriptionIds(info.Subscribers.Cache);
 							}
 						}
 					}
@@ -291,7 +236,7 @@ namespace StockSharp.Algo
 
 						subscriptions = _subscriptionsById.Values.Distinct().Select(i =>
 						{
-							var subscription = (ISubscriptionMessage)i.Subscription.Clone();
+							var subscription = i.Subscription.TypedClone();
 							subscription.TransactionId = TransactionIdGenerator.GetNextId();
 
 							_replaceId.Add(subscription.TransactionId, i.Subscription.TransactionId);
@@ -310,76 +255,20 @@ namespace StockSharp.Algo
 			}
 		}
 
-		private void ProcessUserLookupMessage(UserLookupMessage message)
-		{
-			ProcessInSubscriptionMessage(message, DataType.Users, default, id => new UserLookupResultMessage
-			{
-				OriginalTransactionId = id,
-			});
-		}
-
-		private void ProcessTimeFrameLookupMessage(TimeFrameLookupMessage message)
-		{
-			ProcessInSubscriptionMessage(message, DataType.TimeFrames, default, id => new TimeFrameLookupResultMessage
-			{
-				OriginalTransactionId = id,
-			});
-		}
-
-		private void ProcessBoardLookupMessage(BoardLookupMessage message)
-		{
-			ProcessInSubscriptionMessage(message, DataType.Board, default, id => new BoardLookupResultMessage
-			{
-				OriginalTransactionId = id,
-			});
-		}
-
-		private void ProcessSecurityLookupMessage(SecurityLookupMessage message)
-		{
-			ProcessInSubscriptionMessage(message, DataType.Securities, default, id => new SecurityLookupResultMessage
-			{
-				OriginalTransactionId = id,
-			});
-		}
-
-		private void ProcessOrderStatusMessage(OrderStatusMessage message)
+		private bool ProcessOrderStatusMessage(OrderStatusMessage message)
 		{
 			if (message.HasOrderId())
-			{
-				base.OnSendInMessage(message);
-				return;
-			}
+				return base.OnSendInMessage(message);
 
-			ProcessInSubscriptionMessage(message, DataType.Transactions);
+			return ProcessInSubscriptionMessage(message);
 		}
 
-		private void ProcessPortfolioLookupMessage(PortfolioLookupMessage message)
+		private bool ProcessInSubscriptionMessage(ISubscriptionMessage message)
 		{
-			ProcessInSubscriptionMessage(message, DataType.PositionChanges, default, id => new PortfolioLookupResultMessage
-			{
-				OriginalTransactionId = id,
-			});
+			return ProcessInSubscriptionMessage(message, message.ToDataType());
 		}
 
-		private void ProcessInPortfolioMessage(PortfolioMessage message)
-		{
-			ProcessInSubscriptionMessage(message, DataType.Portfolio(message.PortfolioName));
-		}
-
-		private void ProcessInMarketDataMessage(MarketDataMessage message)
-		{
-			var dataType = message.ToDataType();
-			var secId = GetSecurityId(dataType, message.SecurityId);
-
-			ProcessInSubscriptionMessage(message, dataType, secId);
-		}
-
-		private SecurityId GetSecurityId(DataType dataType, SecurityId securityId) => IsSecurityRequired(dataType) ? securityId : default;
-
-		private void ProcessInSubscriptionMessage<TMessage>(TMessage message,
-			DataType dataType, SecurityId securityId = default,
-			Func<long, Message> createSendOut = null)
-			where TMessage : Message, ISubscriptionMessage
+		private bool ProcessInSubscriptionMessage(ISubscriptionMessage message, DataType dataType)
 		{
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
@@ -387,18 +276,12 @@ namespace StockSharp.Algo
 			if (dataType == null)
 				throw new ArgumentNullException(nameof(dataType));
 
-			if (createSendOut == null)
-			{
-				createSendOut = id => id.CreateSubscriptionResponse();
-				//throw new ArgumentNullException(nameof(createSendOut));
-			}
-
-			var isSubscribe = message.IsSubscribe;
 			var transId = message.TransactionId;
 
-			Message sendInMsg = null;
-			Message sendOutMsg = null;
-			Message onlineMsg = null;
+			var isSubscribe = message.IsSubscribe;
+
+			ISubscriptionMessage sendInMsg = null;
+			Message[] sendOutMsgs = null;
 
 			lock (_sync)
 			{
@@ -408,96 +291,75 @@ namespace StockSharp.Algo
 					{
 						sendInMsg = message;
 					}
-					else if (message.To != null)
-					{
-						_historicalRequests.Add(transId, (ISubscriptionMessage)message.Clone());
-						sendInMsg = message;
-					}
 					else
 					{
-						var key = Tuple.Create(dataType, securityId);
+						var clone = message.TypedClone();
 
-						if (!_subscriptionsByKey.TryGetValue(key, out var info))
-						{
-							sendInMsg = message;
-
-							info = new SubscriptionInfo((ISubscriptionMessage)message.Clone());
-						
-							_subscriptionsByKey.Add(key, info);
-						}
+						if (message.To != null)
+							_historicalRequests.Add(transId, clone);
 						else
-						{
-							sendOutMsg = createSendOut(transId);
-							onlineMsg = new SubscriptionOnlineMessage { OriginalTransactionId = transId };
-						}
+							_subscriptionsById.Add(transId, new SubscriptionInfo(clone));
 
-						_subscriptionsById.Add(transId, info);
-						info.Subscribers.Add(transId);
+						sendInMsg = message;
 					}
 				}
 				else
 				{
-					var originId = message.OriginalTransactionId;
-
-					TMessage MakeUnsubscribe(TMessage m)
+					ISubscriptionMessage MakeUnsubscribe(ISubscriptionMessage m)
 					{
+						m = m.TypedClone();
+
 						m.IsSubscribe = false;
+						m.OriginalTransactionId = m.TransactionId;
 						m.TransactionId = transId;
-						m.OriginalTransactionId = originId;
 
 						return m;
 					}
 
-					if (_historicalRequests.TryGetValue(originId, out var subscription))
-					{
-						_historicalRequests.Remove(originId);
+					var originId = message.OriginalTransactionId;
 
-						sendInMsg = MakeUnsubscribe((TMessage)subscription);
+					if (_historicalRequests.TryGetAndRemove(originId, out var subscription))
+					{
+						sendInMsg = MakeUnsubscribe(subscription);
 					}
 					else if (_subscriptionsById.TryGetValue(originId, out var info))
 					{
-						if (!info.Subscribers.Remove(originId))
+						if (info.State.IsActive())
 						{
-							sendOutMsg = originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)));
+							// copy full subscription's details into unsubscribe request
+							sendInMsg = MakeUnsubscribe(info.Subscription);
 						}
 						else
-						{
-							if (info.Subscribers.Count == 0)
-							{
-								_subscriptionsByKey.RemoveByValue(info);
-								_subscriptionsById.Remove(originId);
-
-								// copy full subscription's details into unsubscribe request
-								sendInMsg = MakeUnsubscribe((TMessage)info.Subscription.Clone());
-							}
-							else
-								sendOutMsg = createSendOut(transId);
-						}
+							this.AddWarningLog(LocalizedStrings.SubscriptionInState, originId, info.State);
 					}
 					else
 					{
-						sendOutMsg = originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)));
+						sendOutMsgs = new[]
+						{
+							(Message)originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)))
+						};
 					}
 				}
 			}
 
+			var retVal = true;
+
 			if (sendInMsg != null)
 			{
 				this.AddInfoLog("In: {0}", sendInMsg);
-				base.OnSendInMessage(sendInMsg);
+				retVal = base.OnSendInMessage((Message)sendInMsg);
 			}
 
-			if (sendOutMsg != null)
+			if (sendOutMsgs != null)
 			{
-				this.AddInfoLog("Out: {0}", sendOutMsg);
-				RaiseNewOutMessage(sendOutMsg);
+				foreach (var sendOutMsg in sendOutMsgs)
+				{
+					this.AddInfoLog("Out: {0}", sendOutMsg);
+					RaiseNewOutMessage(sendOutMsg);	
+				}
 			}
 
-			if (onlineMsg != null)
-			{
-				this.AddInfoLog("Out: {0}", onlineMsg);
-				RaiseNewOutMessage(onlineMsg);
-			}
+			return retVal;
 		}
 
 		/// <summary>
@@ -506,7 +368,7 @@ namespace StockSharp.Algo
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new SubscriptionMessageAdapter((IMessageAdapter)InnerAdapter.Clone())
+			return new SubscriptionMessageAdapter(InnerAdapter.TypedClone())
 			{
 				IsRestoreSubscriptionOnErrorReconnect = IsRestoreSubscriptionOnErrorReconnect,
 			};

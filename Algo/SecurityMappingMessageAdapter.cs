@@ -89,7 +89,7 @@ namespace StockSharp.Algo
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message)
 			{
@@ -103,7 +103,7 @@ namespace StockSharp.Algo
 					break;
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		/// <summary>
@@ -112,12 +112,12 @@ namespace StockSharp.Algo
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new SecurityMappingMessageAdapter((IMessageAdapter)InnerAdapter.Clone(), Storage);
+			return new SecurityMappingMessageAdapter(InnerAdapter.TypedClone(), Storage);
 		}
 
 		private void ReplaceSecurityId(SecurityMessage secMsg)
 		{
-			if (secMsg.NotRequiredSecurityId())
+			if (secMsg.SecurityId == default)
 				return;
 
 			var stockSharpId = secMsg.SecurityId.SetNativeId(null);
